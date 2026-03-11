@@ -1,0 +1,51 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - gcr.io/$PROJECT_ID/rival-agent-onboard:latest
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - gcr.io/$PROJECT_ID/rival-agent-onboard:latest
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - rival-agent-onboard
+      - --image
+      - gcr.io/$PROJECT_ID/rival-agent-onboard:latest
+      - --region
+      - europe-west1
+      - --allow-unauthenticated
+      - --service-account
+      - agentic-firestore@rival-agents.iam.gserviceaccount.com
+      - --set-env-vars
+      - ONBOARDING_AGENT_PROJECT_ID=rival-agents
+      - --set-env-vars
+      - ONBOARDING_AGENT_FIRESTORE_DATABASE_ID=agentic-rival
+      - --set-env-vars
+      - ONBOARDING_AGENT_INTERNAL_AGENT_URL=https://rival-agent-internal-730268527569.europe-west1.run.app
+      - --set-env-vars
+      - ONBOARDING_AGENT_DRIVE_FOLDER_ID=1sYBRHgFokkAGYegaJtiMYreyLoBq4VRa
+      - --set-env-vars
+      - ONBOARDING_AGENT_TEMPLATE_DOC_ID=1d_3mw-Td8MZcycTiYfsRt-syF52XvurE02xuiMyy9ZE
+      - --set-env-vars
+      - ONBOARDING_AGENT_ADMIN_SLACK_IDS=kostas
+      - --set-env-vars
+      - ONBOARDING_AGENT_DAILY_REPORT_CHANNEL=
+      - --set-secrets
+      - ONBOARDING_AGENT_GEMINI_API_KEY=GEMINI_API_KEY:latest
+      - --set-secrets
+      - ONBOARDING_AGENT_SLACK_BOT_TOKEN=SLACK_BOT_TOKEN:latest
+      - --min-instances=0
+      - --max-instances=3
+      - --memory=1Gi
+      - --cpu=1
+      - --timeout=120
+images:
+  - gcr.io/$PROJECT_ID/rival-agent-onboard:latest
+options:
+  logging: CLOUD_LOGGING_ONLY

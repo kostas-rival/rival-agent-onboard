@@ -1,0 +1,264 @@
+# Rival Onboarding Template v2
+# This template defines the full onboarding journey structure.
+# Tasks here represent the template; actual progress is tracked in Firestore.
+
+version: "v2"
+
+phases:
+  - id: day_1
+    name: "Day 1 — Getting Set Up"
+    trigger_day: 0
+    groups:
+      - id: tools_setup
+        name: "🛠️ Tool Setup"
+        intro: "Let's get your essential tools configured so you can hit the ground running."
+        tasks:
+          - id: google_drive
+            title: "Set up Google Drive"
+            description: "Your Rival email lives in Google Workspace. This is where your inbox and calendar live."
+            subtasks:
+              - "Set up your Week 1 tasks in your calendar"
+              - "Add your working hours and location on Google Calendar"
+              - "Add your profile picture"
+              - "Start to explore Rival Workspace on Google Drive"
+            links:
+              - label: "Rival Workspace"
+                url: "https://drive.google.com/drive/"
+            tips: "Block focus time in your calendar early — it's the best way to protect deep work!"
+
+          - id: slack_setup
+            title: "Set up your Slack profile"
+            description: "Slack is where all the best GIFs and emojis happen."
+            subtasks:
+              - "Profile picture, contact number, role"
+              - "Add useful info — location, working hours, etc."
+              - "Drop a note to the team in #general when you're all set"
+            verification: "slack_profile_check"
+            tips: "The team loves a good intro — share something fun about yourself!"
+
+          - id: slack_policy
+            title: "Read our Slack Policy"
+            description: "Our Slack guidelines are in the Rival Handbook."
+            internal_query: "What is our Slack policy?"
+
+          - id: charlie_hr
+            title: "Complete your CharlieHR profile"
+            description: "Your HR portal — your invite will be in your Rival inbox. Complete your profile if you haven't already. We'll cover how we use this during onboarding."
+            verification: "charlie_hr_check"
+
+          - id: onepassword
+            title: "Set up 1Password"
+            description: "A safe and secure place to store all your passwords. With the Chrome toolbar add-on, you can automatically fill in logins."
+            links:
+              - label: "1Password Setup"
+                url: "https://start.1password.com/sign-up"
+            tips: "Within Rival's 1Password, you can be added to 'Vaults' for team-shared logins including creative, finance, media, operations, paid media, and product accounts."
+
+          - id: productive_setup
+            title: "Log into Productive"
+            description: "Our project management and time tracking tool. You'll manage your project tasks and track your time, submitting hours each Friday."
+            links:
+              - label: "Calendar & Time Tracking Guide"
+                url: "https://www.loom.com/"
+            verification: "productive_check"
+            tips: "Check out the video guide that shows how to link your calendar and track your hours."
+
+      - id: meet_ri
+        name: "🤖 Meet Rival Intelligence"
+        intro: "Rival Intelligence combines the power of AI with Rival's custom knowledge base to give you challenger-minded answers grounded in our expertise. It's an essential part of our workflow."
+        tasks:
+          - id: ri_channel
+            title: "Visit #rival-intelligence and read the user guide"
+            description: "Check out the Slack channel for the overview and real-life examples of how Rival Intelligence is used."
+
+          - id: ri_first_use
+            title: "Use Rival Intelligence at least once"
+            description: "Try asking a question! Suggestion: 'What is Rival's definition of a challenger brand?'"
+            verification: "ri_usage_check"
+            tips: "This is a prerequisite for your Product 101 session. For any general operations, benefits, or HR queries, feel free to ask Rival Intelligence — it pulls from our internal policies and handbooks."
+
+      - id: email_setup
+        name: "📧 Email"
+        intro: "Your email signature is handled automatically."
+        tasks:
+          - id: email_sig
+            title: "Email signature (automatic)"
+            description: "Your Rival email signature is set up automatically by Raheel (IT Manager). It's added to outgoing emails as sent — don't panic if you don't see it before sending!"
+            auto_complete: true
+
+  - id: week_1
+    name: "Week 1 — Finding Your Feet"
+    trigger_day: 1
+    groups:
+      - id: first_meetings
+        name: "🤝 Manager & Team Meetings"
+        intro: "Time to meet your manager and start joining the team rhythms."
+        tasks:
+          - id: manager_meeting
+            title: "Manager 1-1"
+            description: "Discuss your role, responsibilities, and overview of current projects and tasks."
+            dynamic_field: "manager"
+
+          - id: team_standup
+            title: "Join Team Stand-Up"
+            description: "15 mins every Tuesday, Wednesday, Thursday — share priorities for the day, any support needed, and an ice breaker question to get to know your teammates."
+            recurring: true
+
+          - id: taco_friday
+            title: "Join Taco Friday"
+            description: "30 mins every Friday to reflect on the week and celebrate the wins. We have a thing for Mexican food 🌮"
+            recurring: true
+
+          - id: monthly_checkin
+            title: "Monthly Team Check-in"
+            description: "Welcome new team members, check-in on previous month and upcoming month priorities, review targets & OKRs, workshare — 30 minutes to spotlight great work."
+            recurring: true
+
+      - id: team_intros
+        name: "👋 Team Introductions"
+        intro: "Time to put faces to names! Your 1-1s are being scheduled."
+        dynamic: true
+        source: "introductions"
+
+  - id: month_1
+    name: "Month 1 — Going Deeper"
+    trigger_day: 7
+    groups:
+      - id: onboarding_sessions
+        name: "📚 Onboarding Sessions"
+        intro: "These sessions give you the full picture of how Rival operates across all disciplines."
+        dynamic: true
+        source: "sessions"
+
+      - id: reading
+        name: "📖 Reading & Listening"
+        intro: "Immerse yourself in Rival's world — our content, our voice, our people."
+        tasks:
+          - id: handbook
+            title: "Read the Rival Handbook & our Policies"
+            internal_query: "Where can I find the Rival handbook and our policies?"
+
+          - id: content_hub
+            title: "Check out the Content Hub on our website"
+            links:
+              - label: "Content Hub"
+                url: "https://wearerival.com/content"
+
+          - id: org_chart
+            title: "Take a look at our Org Chart on CharlieHR"
+            description: "Understand how everyone fits together. The Org Chart on CharlieHR might be helpful for team intro meetings too!"
+
+          - id: delivery_sop
+            title: "Read the Delivery and Revenue SOP"
+            internal_query: "What is the Delivery and Revenue SOP?"
+
+          - id: dev_review_process
+            title: "Read the Rival Development Review Process"
+            internal_query: "How do development reviews work at Rival?"
+
+          - id: social_channels
+            title: "Follow our social channels and podcasts"
+            description: "Stay connected with what we're putting out into the world."
+            links:
+              - label: "Scratch Podcast (Spotify)"
+                url: "https://open.spotify.com/show/5kVR4OWHHiLIg2bxuSCkyl?si=0b0ce7dd564e430d"
+              - label: "Scratch (Apple Podcasts)"
+                url: "https://podcasts.apple.com/us/podcast/scratch-cmo-interviews/id1591008871"
+              - label: "YouTube"
+                url: "https://www.youtube.com/@wearerival"
+              - label: "Instagram"
+                url: "https://instagram.com/we.are.rival/?hl=en"
+              - label: "LinkedIn"
+                url: "https://linkedin.com/company/wearerival"
+
+      - id: fun_tasks
+        name: "✨ Fun Stuff"
+        intro: "The fun bits — get creative!"
+        tasks:
+          - id: gtky_card
+            title: "Create your Get To Know You card"
+            description: "Create your own GTKY card and add to the team sheet. You'll be asked to introduce yourself in the monthly meeting using your card. While you're there, scroll through others' cards to learn about the rest of the team!"
+            links:
+              - label: "GTKY Cards"
+                url: "https://docs.google.com/"
+
+          - id: headshot_bio
+            title: "Headshot & bio for Meet the Team page"
+            description: "A professional headshot and bio for our website's Meet the Team page."
+
+          - id: linkedin_banner
+            title: "Update your LinkedIn with Rival banner (optional)"
+            description: "We have Rival banners to use on your personal LinkedIn page if you'd like."
+            optional: true
+
+  - id: reviews
+    name: "Reviews & Goal Setting"
+    trigger_day: 25
+    groups:
+      - id: thirty_day
+        name: "🔭 30-Day Check-in"
+        intro: "Time to reflect on your first month and look ahead."
+        tasks:
+          - id: thirty_day_review
+            title: "30-day check-in with your manager"
+            dynamic_field: "manager"
+            description: "Review your first month. CharlieHR has details on how to share feedback ahead of time."
+
+          - id: set_90_goals
+            title: "Set goals for your 90-day check-in (probation period)"
+            description: "Work with your manager to define clear goals for the probation period."
+
+      - id: ninety_day
+        name: "🎯 90-Day Check-in"
+        intro: "Probation review and long-term planning."
+        tasks:
+          - id: ninety_day_review
+            title: "90-day check-in with your manager"
+            dynamic_field: "manager"
+            description: "Setting long term goals and development plan. CharlieHR has details on how to share feedback ahead of time."
+
+          - id: long_term_goals
+            title: "Set long-term goals and development plan"
+            description: "Define your development trajectory at Rival."
+
+contacts:
+  uk:
+    - name: "Jess"
+      full_name: "Jess Martin Nordin"
+      role: "Operations Director"
+      emoji: "🇬🇧"
+      helps_with:
+        - "Anything HR-related & general support"
+        - "Contracts & procurement"
+        - "Big-picture operational improvements"
+        - "Cross-functional operational questions"
+        - "Account access/subscriptions"
+
+  south_africa:
+    - name: "Alyssia"
+      full_name: "Alyssia"
+      role: "Executive Assistant"
+      emoji: "🇿🇦"
+      helps_with:
+        - "Partner calendar coordination"
+        - "Client and internal team scheduling"
+        - "Admin best practice"
+
+    - name: "Christiaan"
+      full_name: "Christiaan Smith"
+      role: "Finance Manager"
+      emoji: "🇿🇦"
+      helps_with:
+        - "Payroll and benefits"
+        - "Invoicing & payments"
+        - "General finance support"
+
+    - name: "Cherese"
+      full_name: "Cherese Nolan"
+      role: "Operations Associate"
+      emoji: "🇿🇦"
+      helps_with:
+        - "Onboarding & offboarding assistance"
+        - "Expensify assistance"
+        - "Productive time tracking assistance"
+        - "Culture (S&Ds, celebrations, events & initiatives)"
