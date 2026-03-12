@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from rival_agent_shared import AgentInvocationRequest, AgentInvocationResponse
@@ -95,11 +95,12 @@ def handle_read_briefing(
             )
 
         # Create the profile in Firestore
+        start = briefing.start_date or date.today()
         profile = OnboardingProfile(
             user_id=briefing.slack_user_id or f"pending_{briefing.full_name.replace(' ', '_').lower()}",
             full_name=briefing.full_name,
-            role=briefing.role,
-            start_date=briefing.start_date,
+            role=briefing.role or "TBC",
+            start_date=start,
             line_manager=briefing.line_manager,
             office_location=briefing.office_location,
             status=OnboardingStatus.PENDING,

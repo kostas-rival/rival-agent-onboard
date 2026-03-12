@@ -114,8 +114,11 @@ def parse_briefing_doc(raw_text: str) -> BriefingData:
     briefing = BriefingData(raw_text=raw_text)
     lines = raw_text.split("\n")
 
-    current_section = ""
-    section_lines: Dict[str, List[str]] = {}
+    # Default to "details" for lines that appear before any section header,
+    # since many docs have the name/role/date table at the very top without
+    # an explicit "NEW STARTER DETAILS" heading.
+    current_section = "details"
+    section_lines: Dict[str, List[str]] = {"details": []}
 
     for line in lines:
         stripped = line.strip()
