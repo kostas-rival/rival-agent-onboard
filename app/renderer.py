@@ -218,7 +218,7 @@ def render_admin_list(profiles: List[OnboardingProfile], progress_map: Optional[
     for profile in profiles:
         name = profile.full_name
         role = profile.role
-        fp = progress_map.get(profile.user_id)
+        fp = progress_map.get(profile.user_id) if progress_map else None
 
         if fp:
             day = fp.onboarding_day
