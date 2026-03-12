@@ -76,9 +76,23 @@ def handle_read_briefing(
 
         briefing = read_briefing_from_url(doc_url)
 
-        # Generate personalised onboarding doc
-        doc_result = generate_onboarding_doc(briefing)
-        doc_url_out = doc_result["doc_url"]
+        # Attempt to generate personalised onboarding doc (optional — may fail
+        # if the service account lacks Google Workspace storage quota)
+        doc_url_out = ""
+        doc_id_out = ""
+        doc_note = ""
+        try:
+            doc_result = generate_onboarding_doc(briefing)
+            doc_url_out = doc_result["doc_url"]
+            doc_id_out = doc_result.get("doc_id", "")
+            doc_note = f"\n📄 Generated onboarding doc: <{doc_url_out}|Open in Drive>\n"
+        except Exception:
+            log.warning("Doc generation failed (storage quota?) — continuing without it", exc_info=True)
+            doc_note = (
+                "\n⚠️ _Could not auto-generate onboarding doc "
+                "(service account storage quota). "
+                "You can copy the template manually._\n"
+            )
 
         # Create the profile in Firestore
         profile = OnboardingProfile(
@@ -91,7 +105,7 @@ def handle_read_briefing(
             status=OnboardingStatus.PENDING,
             briefing_doc_url=doc_url,
             generated_doc_url=doc_url_out,
-            generated_doc_id=doc_result.get("doc_id", ""),
+            generated_doc_id=doc_id_out,
             template_version="v2",
         )
         create_profile(profile)
@@ -99,10 +113,10 @@ def handle_read_briefing(
         response = (
             f"✅ *Briefing processed for {briefing.full_name}*\n\n"
             f"• *Role:* {briefing.role}\n"
-            f"• *Start date:* {briefing.start_date.strftime('%d %B %Y')}\n"
+            f"• *Start date:* {briefing.start_date.strftime('%d %B %Y') if briefing.start_date else 'TBC'}\n"
             f"• *Line manager:* {briefing.line_manager or 'TBC'}\n"
-            f"• *Office:* {briefing.office_location or 'Remote'}\n\n"
-            f"📄 Generated onboarding doc: <{doc_url_out}|Open in Drive>\n\n"
+            f"• *Office:* {briefing.office_location or 'Remote'}\n"
+            f"{doc_note}\n"
             f"The onboarding will activate automatically on the start date, "
             f"or you can run `activate {briefing.full_name}` to start now."
         )

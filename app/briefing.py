@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from google.auth import default as google_auth_default
-from google.auth.transport.requests import Request as GoogleAuthRequest
+from google.oauth2 import service_account as sa_module
 from googleapiclient.discovery import build as build_service
 
 from .config import get_settings
@@ -19,18 +19,41 @@ log = logging.getLogger(__name__)
 _docs_service = None
 _drive_service = None
 
+_SCOPES = [
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/drive",
+]
+
+
+def _get_drive_credentials():
+    """Load the AI-knowledge service account credentials from Secret Manager.
+
+    Falls back to application-default credentials if unavailable.
+    """
+    try:
+        from google.cloud import secretmanager
+
+        client = secretmanager.SecretManagerServiceClient()
+        settings = get_settings()
+        name = f"projects/{settings.project_id}/secrets/DRIVE_SA_JSON/versions/latest"
+        response = client.access_secret_version(request={"name": name})
+        sa_info = json.loads(response.payload.data.decode("UTF-8"))
+        return sa_module.Credentials.from_service_account_info(sa_info, scopes=_SCOPES)
+    except Exception:
+        log.warning("Could not load DRIVE_SA_JSON secret — falling back to default credentials")
+        from google.auth import default as google_auth_default
+        from google.auth.transport.requests import Request as GoogleAuthRequest
+
+        credentials, _ = google_auth_default(scopes=_SCOPES)
+        credentials.refresh(GoogleAuthRequest())
+        return credentials
+
 
 def _get_docs_service():
     """Get or create a Google Docs API service."""
     global _docs_service
     if _docs_service is None:
-        credentials, _ = google_auth_default(
-            scopes=[
-                "https://www.googleapis.com/auth/documents",
-                "https://www.googleapis.com/auth/drive",
-            ]
-        )
-        credentials.refresh(GoogleAuthRequest())
+        credentials = _get_drive_credentials()
         _docs_service = build_service("docs", "v1", credentials=credentials)
     return _docs_service
 
@@ -39,13 +62,7 @@ def _get_drive_service():
     """Get or create a Google Drive API service."""
     global _drive_service
     if _drive_service is None:
-        credentials, _ = google_auth_default(
-            scopes=[
-                "https://www.googleapis.com/auth/documents",
-                "https://www.googleapis.com/auth/drive",
-            ]
-        )
-        credentials.refresh(GoogleAuthRequest())
+        credentials = _get_drive_credentials()
         _drive_service = build_service("drive", "v3", credentials=credentials)
     return _drive_service
 
