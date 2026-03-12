@@ -36,6 +36,7 @@ INTENTS:
 - admin_create: Admin creating a new onboarding profile manually
 - admin_list: Admin asking to list active onboardings
 - admin_progress: Admin asking about a specific person's progress ("progress for @name")
+- admin_activate: Admin activating a pending onboarding ("activate <name>")
 - admin_pause: Admin pausing/resuming an onboarding
 - admin_complete: Admin marking an onboarding as complete
 - admin_update: Admin updating an onboarding (add task, change date, etc.)
@@ -56,6 +57,7 @@ RULES:
 - If the message asks "who" + verb (handles, manages, is responsible), classify as who_is
 - For ambiguous messages, consider: is the user a new starter or an admin?
 - "pause" or "resume" followed by a name → admin_pause
+- "activate" followed by a name → admin_activate
 - "complete onboarding" for a name → admin_complete
 - "report" or "daily report" or "update" (from admin) → admin_report
 - Multiple intents: if "done with X, what's next" → mark_complete (primary, with task context)
@@ -160,6 +162,11 @@ def _fast_classify(text: str, is_admin: bool) -> Optional[OnboardingIntent]:
             name_match = re.search(r"(?:pause|resume)\s+@?(\w[\w\s]*)", lower)
             entity = name_match.group(1).strip() if name_match else None
             return OnboardingIntent(intent="admin_pause", entity=entity, confidence=0.9)
+        if lower.startswith("activate"):
+            import re
+            name_match = re.search(r"activate\s+@?(\w[\w\s]*)", lower)
+            entity = name_match.group(1).strip() if name_match else None
+            return OnboardingIntent(intent="admin_activate", entity=entity, confidence=0.95)
         if lower.startswith("complete onboarding") or lower.startswith("finish onboarding"):
             import re
             name_match = re.search(r"(?:complete|finish)\s+onboarding\s+(?:for\s+)?@?(\w[\w\s]*)", lower)
