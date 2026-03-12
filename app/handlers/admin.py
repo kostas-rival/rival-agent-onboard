@@ -92,7 +92,7 @@ def handle_read_briefing(
             briefing_doc_url=doc_url,
             generated_doc_url=doc_url_out,
             generated_doc_id=doc_result.get("doc_id", ""),
-            template_version="onboarding_v2",
+            template_version="v2",
         )
         create_profile(profile)
 

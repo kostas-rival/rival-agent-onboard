@@ -50,12 +50,13 @@ class OnboardingAgent:
         log.info("Onboarding request from %s: %s", user_id, text[:100])
 
         # Classify intent
-        intent = classify_intent(text)
+        admin = is_admin(user_id)
+        intent = classify_intent(text, is_admin=admin)
         log.info("Classified intent: %s (confidence=%.2f)", intent.intent, intent.confidence)
 
         # ── Admin commands (no profile required) ──────────────────────────
         if intent.intent in {
-            "read_briefing",
+            "admin_read_briefing",
             "admin_list",
             "admin_analytics",
             "admin_report",
@@ -158,12 +159,10 @@ class OnboardingAgent:
             return handle_next_task(request, profile)
 
         if intent_name == "mark_complete":
-            task_id = intent.task_ids[0] if intent.task_ids else None
-            return handle_mark_complete(request, profile, task_id=task_id)
+            return handle_mark_complete(request, profile, intent)
 
         if intent_name == "skip_task":
-            task_id = intent.task_ids[0] if intent.task_ids else None
-            return handle_skip_task(request, profile, task_id=task_id)
+            return handle_skip_task(request, profile, intent)
 
         # ── Progress & schedule ───────────────────────────────────────────
         if intent_name == "progress":
@@ -205,7 +204,7 @@ class OnboardingAgent:
             )
 
         handlers = {
-            "read_briefing": lambda: handle_read_briefing(request),
+            "admin_read_briefing": lambda: handle_read_briefing(request),
             "admin_list": lambda: handle_admin_list(request),
             "admin_analytics": lambda: handle_analytics(request),
             "admin_report": lambda: handle_daily_report(request),
