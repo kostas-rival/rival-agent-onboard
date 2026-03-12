@@ -66,6 +66,12 @@ class Settings(BaseSettings):
         description="Comma-separated Slack user IDs to DM daily reports to",
     )
 
+    # Service URL (for building tracking links)
+    service_url: str = Field(
+        default="https://rival-agent-onboard-730268527569.europe-west1.run.app",
+        description="Public URL of this service, used to build tracked redirect links",
+    )
+
     # Onboarding
     active_duration_days: int = Field(
         default=30,

@@ -137,6 +137,17 @@ class InteractionLog(BaseModel):
     details: Dict[str, Any] = Field(default_factory=dict)
 
 
+class LinkClick(BaseModel):
+    """Record of a user clicking a tracked onboarding link."""
+
+    user_id: str
+    task_id: str
+    link_index: int = 0
+    link_url: str = ""
+    link_label: str = ""
+    clicked_at: datetime
+
+
 # ── Template Models ───────────────────────────────────────────────────────
 
 

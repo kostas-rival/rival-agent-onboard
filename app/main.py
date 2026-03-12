@@ -6,7 +6,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from rival_agent_shared import AgentInvocationRequest, AgentInvocationResponse
 
 from .agent import OnboardingAgent
@@ -134,6 +134,40 @@ async def run_verifications(request: Request):
     except Exception:
         log.exception("Verifications failed")
         raise HTTPException(status_code=500, detail="Verifications failed")
+
+
+# ── Link click tracking ─────────────────────────────────────────────────────
+
+
+@app.get("/v1/track/{user_id}/{task_id}/{link_index}")
+async def track_link_click(user_id: str, task_id: str, link_index: int):
+    """Record a link click and redirect to the actual URL.
+
+    The link_index maps to the position in the task's links array from the
+    YAML template. After recording the click we 302-redirect to the real URL.
+    """
+    from .state import get_profile, record_link_click
+    from .template import get_task_by_id, load_template
+
+    profile = get_profile(user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    template = load_template(profile.template_version)
+    task = get_task_by_id(template, task_id)
+    if not task or link_index >= len(task.links):
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    link = task.links[link_index]
+    record_link_click(
+        user_id=user_id,
+        task_id=task_id,
+        link_index=link_index,
+        link_url=link.url,
+        link_label=link.label,
+    )
+    log.info("Tracked click: user=%s task=%s link=%s → %s", user_id, task_id, link.label, link.url)
+    return RedirectResponse(url=link.url, status_code=302)
 
 
 # ── Health check ────────────────────────────────────────────────────────────

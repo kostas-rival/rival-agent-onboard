@@ -68,7 +68,7 @@ def handle_next_task(
             parts = [
                 f"*{group.name}* ({completed_in_group}/{total_in_group} done)\n",
                 "📋 *Remaining:*",
-                render_task_checklist(incomplete_tasks, progress),
+                render_task_checklist(incomplete_tasks, progress, user_id=profile.user_id),
                 "\nLet me know when you've done these, or say *\"next\"* to skip ahead.",
             ]
             response = "\n".join(parts)
@@ -80,7 +80,7 @@ def handle_next_task(
             if group.intro:
                 parts.append(f"_{group.intro}_\n")
             parts.append("📋 *To do:*")
-            parts.append(render_task_checklist(group.tasks, progress))
+            parts.append(render_task_checklist(group.tasks, progress, user_id=profile.user_id))
             parts.append("\nLet me know when you've done these, or say *\"next\"* to move on.")
             response = "\n".join(parts)
 

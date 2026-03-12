@@ -145,7 +145,7 @@ def _render_group_walkthrough(
     if group.intro:
         parts.append(f"_{group.intro}_\n")
     parts.append("📋 *To do:*")
-    parts.append(render_task_checklist(group.tasks, progress))
+    parts.append(render_task_checklist(group.tasks, progress, user_id=profile.user_id))
     parts.append("\nLet me know when you've done these, or say *\"next\"* to move on.")
     return "\n".join(parts)
 

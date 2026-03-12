@@ -12,13 +12,15 @@ from .config import get_settings
 from .models import OnboardingStatus, TaskProgress
 from .state import (
     get_all_task_progress,
+    get_link_clicks,
     list_active_profiles,
     mark_task_completed,
 )
+from .template import get_task_by_id, load_template
 
 log = logging.getLogger(__name__)
 
-# Tasks that can be automatically verified
+# Tasks that can be automatically verified via API checks
 VERIFIABLE_TASKS = {
     "slack_profile_photo": "verify_slack_profile_photo",
     "slack_display_name": "verify_slack_display_name",
@@ -29,7 +31,12 @@ VERIFIABLE_TASKS = {
 
 
 async def run_all_verifications() -> list[dict[str, Any]]:
-    """Run automated verifications for all active onboardees."""
+    """Run automated verifications for all active onboardees.
+
+    This combines two verification strategies:
+    1. API-based checks (Slack profile, Google Workspace)
+    2. Link-click verification (auto-complete tasks when all links have been clicked)
+    """
     profiles = list_active_profiles()
     results = []
 
@@ -37,6 +44,7 @@ async def run_all_verifications() -> list[dict[str, Any]]:
         tasks = get_all_task_progress(profile.user_id)
         completed_ids = {t.task_id for t in tasks.values() if t.completed}
 
+        # ── Strategy 1: API-based verification ──────────────────────
         for task_id, verify_fn_name in VERIFIABLE_TASKS.items():
             if task_id in completed_ids:
                 continue  # Already done
@@ -48,17 +56,17 @@ async def run_all_verifications() -> list[dict[str, Any]]:
             try:
                 passed = await verify_fn(profile.user_id)
                 if passed:
-                    mark_task_completed(profile.user_id, task_id, auto_verified=True)
+                    mark_task_completed(profile.user_id, task_id, auto_verified=True,
+                                       verification_details="API verification passed")
                     results.append(
                         {
                             "user_id": profile.user_id,
                             "name": profile.full_name,
                             "task": task_id,
                             "status": "auto_completed",
+                            "method": "api_check",
                         }
                     )
-
-                    # Notify the user
                     await _notify_auto_complete(profile.user_id, task_id)
                 else:
                     results.append(
@@ -67,6 +75,7 @@ async def run_all_verifications() -> list[dict[str, Any]]:
                             "name": profile.full_name,
                             "task": task_id,
                             "status": "not_yet_done",
+                            "method": "api_check",
                         }
                     )
             except Exception:
@@ -79,8 +88,52 @@ async def run_all_verifications() -> list[dict[str, Any]]:
                         "name": profile.full_name,
                         "task": task_id,
                         "status": "error",
+                        "method": "api_check",
                     }
                 )
+
+        # ── Strategy 2: Link-click verification ────────────────────
+        link_results = await _verify_link_clicks(profile, completed_ids)
+        results.extend(link_results)
+
+    return results
+
+
+async def _verify_link_clicks(profile, completed_ids: set[str]) -> list[dict[str, Any]]:
+    """Auto-complete tasks where all links have been clicked."""
+    results = []
+    template = load_template(profile.template_version)
+
+    for phase in template.phases:
+        for group in phase.groups:
+            if group.dynamic:
+                continue
+            for task in group.tasks:
+                if task.id in completed_ids or task.auto_complete:
+                    continue
+                if not task.links:
+                    continue  # No links to track
+
+                # Check if all links have been clicked
+                clicks = get_link_clicks(profile.user_id, task.id)
+                clicked_indices = {c.get("link_index", -1) for c in clicks}
+                all_clicked = all(i in clicked_indices for i in range(len(task.links)))
+
+                if all_clicked:
+                    mark_task_completed(
+                        profile.user_id, task.id,
+                        auto_verified=True,
+                        verification_details=f"All {len(task.links)} link(s) clicked",
+                    )
+                    results.append({
+                        "user_id": profile.user_id,
+                        "name": profile.full_name,
+                        "task": task.id,
+                        "status": "auto_completed",
+                        "method": "link_click",
+                        "links_clicked": len(clicks),
+                    })
+                    await _notify_auto_complete(profile.user_id, task.id)
 
     return results
 

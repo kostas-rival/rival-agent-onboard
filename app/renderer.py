@@ -46,10 +46,18 @@ def render_phase_status_emoji(pct: float) -> str:
     return "⚪"
 
 
+def _tracked_link_url(user_id: str, task_id: str, link_index: int) -> str:
+    """Build a tracking redirect URL for a task link."""
+    from .config import get_settings
+    base = get_settings().service_url.rstrip("/")
+    return f"{base}/v1/track/{user_id}/{task_id}/{link_index}"
+
+
 def render_task_checklist(
     tasks: List[TaskDefinition],
     progress: Dict[str, TaskProgress],
     show_tips: bool = True,
+    user_id: str = "",
 ) -> str:
     """Render a task group as a checklist."""
     lines = []
@@ -71,8 +79,12 @@ def render_task_checklist(
         if not tp or tp.status == TaskStatus.NOT_STARTED:
             for subtask in task.subtasks:
                 lines.append(f"      → {subtask}")
-            for link in task.links:
-                lines.append(f"      🔗 <{link.url}|{link.label}>")
+            for i, link in enumerate(task.links):
+                if user_id:
+                    tracked_url = _tracked_link_url(user_id, task.id, i)
+                    lines.append(f"      🔗 <{tracked_url}|{link.label}>")
+                else:
+                    lines.append(f"      🔗 <{link.url}|{link.label}>")
 
     if show_tips:
         for task in tasks:
@@ -84,7 +96,7 @@ def render_task_checklist(
     return "\n".join(lines)
 
 
-def render_task_group_intro(group: TaskGroup, progress: Dict[str, TaskProgress]) -> str:
+def render_task_group_intro(group: TaskGroup, progress: Dict[str, TaskProgress], user_id: str = "") -> str:
     """Render a task group with its intro and tasks."""
     parts = []
     if group.name:
@@ -93,7 +105,7 @@ def render_task_group_intro(group: TaskGroup, progress: Dict[str, TaskProgress])
         parts.append(f"_{group.intro}_")
     parts.append("")
 
-    checklist = render_task_checklist(group.tasks, progress)
+    checklist = render_task_checklist(group.tasks, progress, user_id=user_id)
     parts.append(checklist)
     return "\n".join(parts)
 

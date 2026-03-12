@@ -373,3 +373,56 @@ def get_interaction_history(
         except Exception:
             pass
     return list(reversed(entries))  # chronological order
+
+
+# ── Link Click Tracking ──────────────────────────────────────────────────
+
+
+def record_link_click(
+    user_id: str,
+    task_id: str,
+    link_index: int = 0,
+    link_url: str = "",
+    link_label: str = "",
+) -> None:
+    """Record that a user clicked a tracked link."""
+    from .models import LinkClick
+
+    click = LinkClick(
+        user_id=user_id,
+        task_id=task_id,
+        link_index=link_index,
+        link_url=link_url,
+        link_label=link_label,
+        clicked_at=_now(),
+    )
+    _collection().document(user_id).collection("link_clicks").add(
+        click.model_dump(mode="json")
+    )
+    log.info("Link click recorded: user=%s task=%s link=%s", user_id, task_id, link_label or link_url)
+
+
+def get_link_clicks(user_id: str, task_id: str | None = None) -> List[Dict[str, Any]]:
+    """Get link clicks for a user, optionally filtered by task_id."""
+    query = _collection().document(user_id).collection("link_clicks")
+    if task_id:
+        query = query.where("task_id", "==", task_id)
+    clicks = []
+    for doc in query.stream():
+        data = doc.to_dict()
+        ts = data.get("clicked_at")
+        if ts and hasattr(ts, "isoformat"):
+            data["clicked_at"] = ts.isoformat()
+        clicks.append(data)
+    return clicks
+
+
+def get_clicked_task_ids(user_id: str) -> set[str]:
+    """Get the set of task_ids for which the user has clicked at least one link."""
+    task_ids = set()
+    for doc in _collection().document(user_id).collection("link_clicks").stream():
+        data = doc.to_dict()
+        tid = data.get("task_id")
+        if tid:
+            task_ids.add(tid)
+    return task_ids
