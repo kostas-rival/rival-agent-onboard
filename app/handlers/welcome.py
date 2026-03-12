@@ -28,13 +28,13 @@ def handle_welcome(
     """Handle initial greeting from a new starter."""
     template = load_template(profile.template_version)
     day = get_onboarding_day(profile)
-    name = profile.preferred_name or profile.name.split()[0]
+    name = profile.preferred_name or profile.full_name.split()[0]
 
     if day == 0 and not profile.welcome_sent:
         # First contact on Day 1
         response = _first_day_welcome(name, profile, template)
-        update_profile(profile.slack_user_id, {"welcome_sent": True})
-        log_interaction(profile.slack_user_id, InteractionType.WELCOME, f"Welcome message sent (Day {day})")
+        update_profile(profile.user_id, {"welcome_sent": True})
+        log_interaction(profile.user_id, InteractionType.WELCOME, f"Welcome message sent (Day {day})")
     elif day == 0:
         response = _returning_day1(name, profile, template)
     else:
@@ -56,7 +56,7 @@ def handle_get_started(
 ) -> AgentInvocationResponse:
     """Handle 'let's go', 'start', 'what's first'."""
     template = load_template(profile.template_version)
-    progress = get_all_task_progress(profile.slack_user_id)
+    progress = get_all_task_progress(profile.user_id)
 
     group = get_next_incomplete_group(profile, template, progress)
     if not group:
@@ -67,7 +67,7 @@ def handle_get_started(
         )
     else:
         response = _render_group_walkthrough(group, progress, profile)
-        update_profile(profile.slack_user_id, {
+        update_profile(profile.user_id, {
             "current_phase": _find_phase_for_group(template, group.id),
             "current_group": group.id,
         })
@@ -100,8 +100,8 @@ def _first_day_welcome(name: str, profile: OnboardingProfile, template) -> str:
                 phase_summary.append(f"    • {gn}")
 
     manager_line = ""
-    if profile.manager_name:
-        manager_line = f"\n🤝 Your manager *{profile.manager_name}* will have a 1-1 with you to discuss your role and current projects."
+    if profile.line_manager:
+        manager_line = f"\n🤝 Your manager *{profile.line_manager}* will have a 1-1 with you to discuss your role and current projects."
 
     return (
         f"🎉 *Welcome to Rival, {name}!*\n\n"

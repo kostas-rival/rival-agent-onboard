@@ -73,25 +73,11 @@ def handle_read_briefing(
                 agent_id="onboarding",
             )
 
-        raw_text = read_briefing_from_url(doc_url)
-        briefing = parse_briefing_doc(raw_text)
+        briefing = read_briefing_from_url(doc_url)
 
         # Generate personalised onboarding doc
-        settings = get_settings()
-        replacements = {
-            "{{FULL_NAME}}": briefing.full_name,
-            "{{ROLE}}": briefing.role,
-            "{{START_DATE}}": briefing.start_date.strftime("%d %B %Y"),
-            "{{LINE_MANAGER}}": briefing.line_manager or "TBC",
-            "{{OFFICE}}": briefing.office_location or "Remote",
-            "{{NOTES}}": briefing.role_notes or "",
-        }
-        doc_url_out = generate_onboarding_doc(
-            template_doc_id=settings.template_doc_id,
-            folder_id=settings.drive_folder_id,
-            new_title=f"Onboarding — {briefing.full_name}",
-            replacements=replacements,
-        )
+        doc_result = generate_onboarding_doc(briefing)
+        doc_url_out = doc_result["doc_url"]
 
         # Create the profile in Firestore
         profile = OnboardingProfile(
@@ -104,6 +90,7 @@ def handle_read_briefing(
             status=OnboardingStatus.PENDING,
             briefing_doc_url=doc_url,
             generated_doc_url=doc_url_out,
+            generated_doc_id=doc_result.get("doc_id", ""),
             template_version="onboarding_v2",
         )
         create_profile(profile)

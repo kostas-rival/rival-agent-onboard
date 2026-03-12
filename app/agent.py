@@ -158,10 +158,12 @@ class OnboardingAgent:
             return handle_next_task(request, profile)
 
         if intent_name == "mark_complete":
-            return handle_mark_complete(request, profile, task_id=intent.task_id)
+            task_id = intent.task_ids[0] if intent.task_ids else None
+            return handle_mark_complete(request, profile, task_id=task_id)
 
         if intent_name == "skip_task":
-            return handle_skip_task(request, profile, task_id=intent.task_id)
+            task_id = intent.task_ids[0] if intent.task_ids else None
+            return handle_skip_task(request, profile, task_id=task_id)
 
         # ── Progress & schedule ───────────────────────────────────────────
         if intent_name == "progress":
@@ -178,7 +180,7 @@ class OnboardingAgent:
 
         # ── People ────────────────────────────────────────────────────────
         if intent_name == "who_is":
-            return handle_who_is(request, profile, topic=intent.topic)
+            return handle_who_is(request, profile, topic=intent.entity)
 
         if intent_name == "contacts":
             return handle_show_contacts(request, profile)
@@ -207,10 +209,10 @@ class OnboardingAgent:
             "admin_list": lambda: handle_admin_list(request),
             "admin_analytics": lambda: handle_analytics(request),
             "admin_report": lambda: handle_daily_report(request),
-            "admin_activate": lambda: handle_activate(request, target_name=intent.topic),
-            "admin_pause": lambda: handle_pause(request, target_name=intent.topic),
+            "admin_activate": lambda: handle_activate(request, target_name=intent.entity),
+            "admin_pause": lambda: handle_pause(request, target_name=intent.entity),
             "admin_complete": lambda: handle_complete_onboarding(
-                request, target_name=intent.topic
+                request, target_name=intent.entity
             ),
         }
 

@@ -35,7 +35,7 @@ async def run_all_verifications() -> list[dict[str, Any]]:
 
     for profile in profiles:
         tasks = get_all_task_progress(profile.user_id)
-        completed_ids = {t.task_id for t in tasks if t.completed}
+        completed_ids = {t.task_id for t in tasks.values() if t.completed}
 
         for task_id, verify_fn_name in VERIFIABLE_TASKS.items():
             if task_id in completed_ids:

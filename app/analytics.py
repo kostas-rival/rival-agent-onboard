@@ -36,8 +36,8 @@ def compute_aggregate_analytics() -> dict[str, Any]:
         total = sum(
             len(g.tasks) for phase in template.phases for g in phase.groups
         )
-        completed = len([t for t in tasks if t.completed])
-        skipped = len([t for t in tasks if t.skipped])
+        completed = len([t for t in tasks.values() if t.completed])
+        skipped = len([t for t in tasks.values() if t.skipped])
         pct = int((completed / total) * 100) if total > 0 else 0
 
         total_tasks_all += total
@@ -73,12 +73,12 @@ def compute_aggregate_analytics() -> dict[str, Any]:
     incomplete_counter: Counter = Counter()
     for profile in active_profiles:
         tasks = get_all_task_progress(profile.user_id)
-        completed_ids = {t.task_id for t in tasks if t.completed}
+        completed_ids = {t.task_id for t in tasks.values() if t.completed}
         template = load_template(profile.template_version)
         for phase in template.phases:
             for group in phase.groups:
                 for task in group.tasks:
-                    if task.task_id not in completed_ids:
+                    if task.id not in completed_ids:
                         incomplete_counter[task.title] += 1
 
     common_blockers = incomplete_counter.most_common(5)
@@ -101,7 +101,7 @@ def compute_completion_timeline(profile: OnboardingProfile) -> list[dict]:
 
     # Sort by completion time
     completed_tasks = sorted(
-        [t for t in tasks if t.completed and t.completed_at],
+        [t for t in tasks.values() if t.completed and t.completed_at],
         key=lambda t: t.completed_at,
     )
 

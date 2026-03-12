@@ -62,19 +62,19 @@ def create_profile(profile: OnboardingProfile) -> OnboardingProfile:
     # Convert date objects to string for Firestore
     if isinstance(data.get("start_date"), date):
         data["start_date"] = data["start_date"].isoformat()
-    _collection().document(profile.slack_user_id).set(data)
-    log.info("Created onboarding profile for %s (%s)", profile.name, profile.slack_user_id)
+    _collection().document(profile.user_id).set(data)
+    log.info("Created onboarding profile for %s (%s)", profile.full_name, profile.user_id)
     return profile
 
 
-def get_profile(slack_user_id: str) -> Optional[OnboardingProfile]:
+def get_profile(user_id: str) -> Optional[OnboardingProfile]:
     """Get an onboarding profile by Slack user ID."""
-    doc = _collection().document(slack_user_id).get()
+    doc = _collection().document(user_id).get()
     if not doc.exists:
         return None
     data = doc.to_dict()
     # Handle Firestore timestamp conversion
-    for field in ("created_at", "last_interaction"):
+    for field in ("created_at", "last_interaction", "activated_at", "completed_at"):
         val = data.get(field)
         if val and hasattr(val, "isoformat"):
             data[field] = val.isoformat()
@@ -87,9 +87,9 @@ def get_profile_by_name(name: str) -> Optional[OnboardingProfile]:
     docs = _collection().stream()
     for doc in docs:
         data = doc.to_dict()
-        doc_name = (data.get("name") or "").lower()
+        doc_name = (data.get("full_name") or "").lower()
         if name_lower in doc_name or doc_name in name_lower:
-            for field in ("created_at", "last_interaction"):
+            for field in ("created_at", "last_interaction", "activated_at", "completed_at"):
                 val = data.get(field)
                 if val and hasattr(val, "isoformat"):
                     data[field] = val.isoformat()
@@ -97,22 +97,35 @@ def get_profile_by_name(name: str) -> Optional[OnboardingProfile]:
     return None
 
 
-def update_profile(slack_user_id: str, updates: Dict[str, Any]) -> None:
-    """Update specific fields on a profile."""
-    updates["last_interaction"] = _now()
-    _collection().document(slack_user_id).update(updates)
-    log.info("Updated profile %s: %s", slack_user_id, list(updates.keys()))
+def update_profile(user_id_or_profile, updates: Optional[Dict[str, Any]] = None) -> None:
+    """Update a profile. Accepts (user_id, dict) or (profile_object)."""
+    if isinstance(user_id_or_profile, OnboardingProfile):
+        profile = user_id_or_profile
+        data = profile.model_dump(mode="json")
+        # Convert date objects
+        if isinstance(data.get("start_date"), date):
+            data["start_date"] = data["start_date"].isoformat()
+        data["last_interaction"] = _now()
+        _collection().document(profile.user_id).set(data, merge=True)
+        log.info("Updated profile %s (full object)", profile.user_id)
+    else:
+        user_id = user_id_or_profile
+        if updates is None:
+            updates = {}
+        updates["last_interaction"] = _now()
+        _collection().document(user_id).update(updates)
+        log.info("Updated profile %s: %s", user_id, list(updates.keys()))
 
 
-def delete_profile(slack_user_id: str) -> None:
+def delete_profile(user_id: str) -> None:
     """Delete a profile and all subcollections."""
-    doc_ref = _collection().document(slack_user_id)
+    doc_ref = _collection().document(user_id)
     # Delete subcollections
     for sub in ("progress", "sessions", "introductions", "interactions"):
         for sub_doc in doc_ref.collection(sub).stream():
             sub_doc.reference.delete()
     doc_ref.delete()
-    log.info("Deleted onboarding profile %s", slack_user_id)
+    log.info("Deleted onboarding profile %s", user_id)
 
 
 def list_active_profiles() -> List[OnboardingProfile]:
@@ -122,7 +135,7 @@ def list_active_profiles() -> List[OnboardingProfile]:
         query = _collection().where("status", "==", status)
         for doc in query.stream():
             data = doc.to_dict()
-            for field in ("created_at", "last_interaction"):
+            for field in ("created_at", "last_interaction", "activated_at", "completed_at"):
                 val = data.get(field)
                 if val and hasattr(val, "isoformat"):
                     data[field] = val.isoformat()
@@ -140,7 +153,7 @@ def list_all_profiles(include_completed: bool = False) -> List[OnboardingProfile
         data = doc.to_dict()
         if not include_completed and data.get("status") == OnboardingStatus.COMPLETED.value:
             continue
-        for field in ("created_at", "last_interaction"):
+        for field in ("created_at", "last_interaction", "activated_at", "completed_at"):
             val = data.get(field)
             if val and hasattr(val, "isoformat"):
                 data[field] = val.isoformat()
@@ -154,9 +167,9 @@ def list_all_profiles(include_completed: bool = False) -> List[OnboardingProfile
 # ── Task Progress ─────────────────────────────────────────────────────────
 
 
-def get_task_progress(slack_user_id: str, task_id: str) -> Optional[TaskProgress]:
+def get_task_progress(user_id: str, task_id: str) -> Optional[TaskProgress]:
     """Get progress for a specific task."""
-    doc = _collection().document(slack_user_id).collection("progress").document(task_id).get()
+    doc = _collection().document(user_id).collection("progress").document(task_id).get()
     if not doc.exists:
         return None
     data = doc.to_dict()
@@ -167,10 +180,10 @@ def get_task_progress(slack_user_id: str, task_id: str) -> Optional[TaskProgress
     return TaskProgress(**data)
 
 
-def get_all_task_progress(slack_user_id: str) -> Dict[str, TaskProgress]:
-    """Get all task progress for a user."""
+def get_all_task_progress(user_id: str) -> Dict[str, TaskProgress]:
+    """Get all task progress for a user, keyed by task_id."""
     progress = {}
-    for doc in _collection().document(slack_user_id).collection("progress").stream():
+    for doc in _collection().document(user_id).collection("progress").stream():
         data = doc.to_dict()
         for field in ("completed_at", "skipped_at"):
             val = data.get(field)
@@ -184,32 +197,35 @@ def get_all_task_progress(slack_user_id: str) -> Dict[str, TaskProgress]:
 
 
 def mark_task_completed(
-    slack_user_id: str,
+    user_id: str,
     task_id: str,
     verified: bool = False,
+    auto_verified: bool = False,
     verification_details: str = "",
     notes: str = "",
 ) -> TaskProgress:
     """Mark a task as completed."""
     now = _now()
+    is_verified = verified or auto_verified
     tp = TaskProgress(
         task_id=task_id,
-        status=TaskStatus.VERIFIED if verified else TaskStatus.COMPLETED,
+        status=TaskStatus.VERIFIED if is_verified else TaskStatus.COMPLETED,
         completed_at=now,
-        verified=verified,
+        verified=is_verified,
+        auto_verified=auto_verified,
         verification_details=verification_details,
         notes=notes,
     )
-    _collection().document(slack_user_id).collection("progress").document(task_id).set(
+    _collection().document(user_id).collection("progress").document(task_id).set(
         tp.model_dump(mode="json")
     )
     # Update last_interaction on profile
-    update_profile(slack_user_id, {"last_interaction": now})
-    log.info("Task %s marked completed for %s (verified=%s)", task_id, slack_user_id, verified)
+    update_profile(user_id, {"last_interaction": now})
+    log.info("Task %s marked completed for %s (verified=%s)", task_id, user_id, is_verified)
     return tp
 
 
-def mark_task_skipped(slack_user_id: str, task_id: str, notes: str = "") -> TaskProgress:
+def mark_task_skipped(user_id: str, task_id: str, notes: str = "") -> TaskProgress:
     """Mark a task as skipped."""
     now = _now()
     tp = TaskProgress(
@@ -218,46 +234,59 @@ def mark_task_skipped(slack_user_id: str, task_id: str, notes: str = "") -> Task
         skipped_at=now,
         notes=notes,
     )
-    _collection().document(slack_user_id).collection("progress").document(task_id).set(
+    _collection().document(user_id).collection("progress").document(task_id).set(
         tp.model_dump(mode="json")
     )
-    update_profile(slack_user_id, {"last_interaction": now})
-    log.info("Task %s marked skipped for %s", task_id, slack_user_id)
+    update_profile(user_id, {"last_interaction": now})
+    log.info("Task %s marked skipped for %s", task_id, user_id)
     return tp
 
 
 # ── Sessions ──────────────────────────────────────────────────────────────
 
 
-def save_sessions(slack_user_id: str, sessions: List[OnboardingSession]) -> None:
+def save_session(session: OnboardingSession) -> None:
+    """Save a single onboarding session."""
+    user_id = session.user_id
+    coll = _collection().document(user_id).collection("sessions")
+    data = session.model_dump(mode="json")
+    if session.scheduled_date:
+        data["scheduled_date"] = session.scheduled_date.isoformat()
+    coll.document(session.session_id).set(data)
+    log.info("Saved session %s for %s", session.session_id, user_id)
+
+
+def save_sessions(user_id: str, sessions: List[OnboardingSession]) -> None:
     """Save onboarding sessions for a user."""
-    coll = _collection().document(slack_user_id).collection("sessions")
+    coll = _collection().document(user_id).collection("sessions")
     for session in sessions:
         data = session.model_dump(mode="json")
-        if session.scheduled_at and hasattr(session.scheduled_at, "isoformat"):
-            data["scheduled_at"] = session.scheduled_at.isoformat()
+        if session.scheduled_date:
+            data["scheduled_date"] = session.scheduled_date.isoformat()
         coll.document(session.session_id).set(data)
-    log.info("Saved %d sessions for %s", len(sessions), slack_user_id)
+    log.info("Saved %d sessions for %s", len(sessions), user_id)
 
 
-def get_sessions(slack_user_id: str) -> List[OnboardingSession]:
+def get_sessions(user_id: str) -> List[OnboardingSession]:
     """Get all sessions for a user."""
     sessions = []
-    for doc in _collection().document(slack_user_id).collection("sessions").stream():
+    for doc in _collection().document(user_id).collection("sessions").stream():
         data = doc.to_dict()
-        val = data.get("scheduled_at")
-        if val and hasattr(val, "isoformat"):
-            data["scheduled_at"] = val.isoformat()
+        # Handle date/timestamp fields
+        for field in ("scheduled_date", "scheduled_at"):
+            val = data.get(field)
+            if val and hasattr(val, "isoformat"):
+                data[field] = val.isoformat()
         try:
             sessions.append(OnboardingSession(**data))
         except Exception:
             pass
-    return sorted(sessions, key=lambda s: s.scheduled_at or datetime.max)
+    return sorted(sessions, key=lambda s: s.scheduled_date)
 
 
-def mark_session_completed(slack_user_id: str, session_id: str) -> None:
+def mark_session_completed(user_id: str, session_id: str) -> None:
     """Mark a session as completed."""
-    _collection().document(slack_user_id).collection("sessions").document(session_id).update(
+    _collection().document(user_id).collection("sessions").document(session_id).update(
         {"completed": True}
     )
 
@@ -265,18 +294,18 @@ def mark_session_completed(slack_user_id: str, session_id: str) -> None:
 # ── Introductions ─────────────────────────────────────────────────────────
 
 
-def save_introductions(slack_user_id: str, intros: List[TeamIntroduction]) -> None:
+def save_introductions(user_id: str, intros: List[TeamIntroduction]) -> None:
     """Save team introduction 1-1s for a user."""
-    coll = _collection().document(slack_user_id).collection("introductions")
+    coll = _collection().document(user_id).collection("introductions")
     for intro in intros:
         coll.document(intro.intro_id).set(intro.model_dump(mode="json"))
-    log.info("Saved %d introductions for %s", len(intros), slack_user_id)
+    log.info("Saved %d introductions for %s", len(intros), user_id)
 
 
-def get_introductions(slack_user_id: str) -> List[TeamIntroduction]:
+def get_introductions(user_id: str) -> List[TeamIntroduction]:
     """Get all introductions for a user."""
     intros = []
-    for doc in _collection().document(slack_user_id).collection("introductions").stream():
+    for doc in _collection().document(user_id).collection("introductions").stream():
         try:
             intros.append(TeamIntroduction(**doc.to_dict()))
         except Exception:
@@ -284,9 +313,9 @@ def get_introductions(slack_user_id: str) -> List[TeamIntroduction]:
     return intros
 
 
-def mark_introduction_completed(slack_user_id: str, intro_id: str) -> None:
+def mark_introduction_completed(user_id: str, intro_id: str) -> None:
     """Mark a 1-1 introduction as completed."""
-    _collection().document(slack_user_id).collection("introductions").document(intro_id).update(
+    _collection().document(user_id).collection("introductions").document(intro_id).update(
         {"completed": True}
     )
 
@@ -295,31 +324,41 @@ def mark_introduction_completed(slack_user_id: str, intro_id: str) -> None:
 
 
 def log_interaction(
-    slack_user_id: str,
+    user_id: str,
     interaction_type: InteractionType,
-    summary: str,
+    summary: str = "",
     details: Dict[str, Any] | None = None,
+    message: str = "",
+    response: str = "",
 ) -> None:
     """Log an onboarding interaction."""
+    # Support both summary/details and message/response patterns
+    actual_summary = summary or message
+    actual_details = details or {}
+    if response:
+        actual_details["response"] = response
+    if message and not summary:
+        actual_details["message"] = message
+
     entry = InteractionLog(
         timestamp=_now(),
         interaction_type=interaction_type,
-        summary=summary,
-        details=details or {},
+        summary=actual_summary,
+        details=actual_details,
     )
-    _collection().document(slack_user_id).collection("interactions").add(
+    _collection().document(user_id).collection("interactions").add(
         entry.model_dump(mode="json")
     )
 
 
 def get_interaction_history(
-    slack_user_id: str, limit: int = 50
+    user_id: str, limit: int = 50
 ) -> List[InteractionLog]:
     """Get recent interaction history."""
     entries = []
     query = (
         _collection()
-        .document(slack_user_id)
+        .document(user_id)
         .collection("interactions")
         .order_by("timestamp", direction=firestore.Query.DESCENDING)
         .limit(limit)

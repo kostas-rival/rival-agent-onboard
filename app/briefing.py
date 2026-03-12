@@ -149,7 +149,7 @@ def _parse_details(lines: List[str], briefing: BriefingData) -> None:
         key_lower = key.lower()
 
         if "name" == key_lower:
-            briefing.name = val
+            briefing.full_name = val
         elif "preferred" in key_lower:
             briefing.preferred_name = val
         elif "start" in key_lower and "date" in key_lower:
@@ -159,11 +159,11 @@ def _parse_details(lines: List[str], briefing: BriefingData) -> None:
         elif "team" in key_lower:
             briefing.team = val
         elif "location" in key_lower:
-            briefing.location = val
+            briefing.office_location = val
         elif "manager" in key_lower and "slack" in key_lower:
-            briefing.manager_slack = val.lstrip("@")
+            briefing.line_manager_slack = val.lstrip("@")
         elif "manager" in key_lower:
-            briefing.manager = val
+            briefing.line_manager = val
 
 
 def _parse_introductions(lines: List[str], briefing: BriefingData) -> None:
@@ -330,7 +330,7 @@ def generate_onboarding_doc(briefing: BriefingData) -> Dict[str, str]:
     docs = _get_docs_service()
 
     # Copy the template document
-    title = f"Onboarding — {briefing.name}"
+    title = f"Onboarding — {briefing.full_name}"
     copy_result = drive.files().copy(
         fileId=settings.template_doc_id,
         body={
@@ -343,14 +343,14 @@ def generate_onboarding_doc(briefing: BriefingData) -> Dict[str, str]:
 
     # Build replacement requests
     replacements = {
-        "{{NAME}}": briefing.name or "",
-        "{{PREFERRED_NAME}}": briefing.preferred_name or briefing.name.split()[0] if briefing.name else "",
+        "{{NAME}}": briefing.full_name or "",
+        "{{PREFERRED_NAME}}": briefing.preferred_name or briefing.full_name.split()[0] if briefing.full_name else "",
         "{{START_DATE}}": briefing.start_date.strftime("%d %B %Y") if briefing.start_date else "",
         "{{ROLE}}": briefing.role or "",
         "{{TEAM}}": briefing.team or "",
-        "{{LOCATION}}": briefing.location or "",
-        "{{MANAGER}}": briefing.manager or "",
-        "{{MANAGER_SLACK}}": f"@{briefing.manager_slack}" if briefing.manager_slack else "",
+        "{{LOCATION}}": briefing.office_location or "",
+        "{{MANAGER}}": briefing.line_manager or "",
+        "{{MANAGER_SLACK}}": f"@{briefing.line_manager_slack}" if briefing.line_manager_slack else "",
     }
 
     # Build session list text

@@ -259,7 +259,7 @@ def _llm_classify(
     if profile:
         from .template import get_onboarding_day
         day = get_onboarding_day(profile)
-        context_parts.append(f"User: {profile.preferred_name or profile.name}")
+        context_parts.append(f"User: {profile.preferred_name or profile.full_name}")
         context_parts.append(f"Role: {profile.role}")
         context_parts.append(f"Onboarding day: {day}")
         context_parts.append(f"Current phase: {profile.current_phase}")

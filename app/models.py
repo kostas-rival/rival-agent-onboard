@@ -43,16 +43,16 @@ class InteractionType(str, Enum):
 class OnboardingProfile(BaseModel):
     """Firestore document representing a new starter's onboarding state."""
 
-    slack_user_id: str = Field(..., description="Slack user ID of the new starter")
-    name: str = Field(..., description="Full name")
+    user_id: str = Field(..., description="Slack user ID of the new starter")
+    full_name: str = Field(..., description="Full name")
     preferred_name: str = Field(default="", description="Preferred first name")
     start_date: date = Field(..., description="Start date at Rival")
     role: str = Field(..., description="Job title / role")
     team: str = Field(default="", description="Team name (product, strategy, creative, etc.)")
-    location: str = Field(default="", description="Office location (London, Cape Town, NYC, etc.)")
+    office_location: str = Field(default="", description="Office location (London, Cape Town, NYC, etc.)")
     timezone: str = Field(default="Europe/London", description="IANA timezone")
-    manager_name: str = Field(default="")
-    manager_slack_id: str = Field(default="")
+    line_manager: str = Field(default="")
+    line_manager_slack_id: str = Field(default="")
     status: OnboardingStatus = Field(default=OnboardingStatus.PENDING)
     briefing_doc_url: str = Field(default="", description="URL of the source briefing Google Doc")
     briefing_doc_id: str = Field(default="", description="Google Doc ID of the source briefing")
@@ -62,6 +62,8 @@ class OnboardingProfile(BaseModel):
     current_phase: str = Field(default="day_1")
     current_group: str = Field(default="tools_setup")
     created_at: Optional[datetime] = None
+    activated_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     created_by: str = Field(default="", description="Slack user ID of admin who created this")
     last_interaction: Optional[datetime] = None
     daily_checkin_enabled: bool = Field(default=True)
@@ -81,8 +83,17 @@ class TaskProgress(BaseModel):
     completed_at: Optional[datetime] = None
     skipped_at: Optional[datetime] = None
     verified: bool = False
+    auto_verified: bool = False
     verification_details: str = ""
     notes: str = ""
+
+    @property
+    def completed(self) -> bool:
+        return self.status in (TaskStatus.COMPLETED, TaskStatus.VERIFIED)
+
+    @property
+    def skipped(self) -> bool:
+        return self.status == TaskStatus.SKIPPED
 
 
 # ── Session / Introduction ────────────────────────────────────────────────
@@ -92,8 +103,12 @@ class OnboardingSession(BaseModel):
     """A scheduled onboarding session (e.g., 'Product 101 — Kostas')."""
 
     session_id: str
+    user_id: str = ""
     title: str
-    presenter: str
+    description: str = ""
+    presenter: str = ""
+    session_type: str = ""
+    scheduled_date: date = Field(default_factory=date.today)
     scheduled_at: Optional[datetime] = None
     completed: bool = False
     prep_notes: str = ""
@@ -191,19 +206,21 @@ class OnboardingTemplate(BaseModel):
 class BriefingData(BaseModel):
     """Structured data parsed from a briefing Google Doc."""
 
-    name: str = ""
+    full_name: str = ""
     preferred_name: str = ""
+    slack_user_id: str = ""
     start_date: Optional[date] = None
     role: str = ""
     team: str = ""
-    location: str = ""
-    manager: str = ""
-    manager_slack: str = ""
+    office_location: str = ""
+    line_manager: str = ""
+    line_manager_slack: str = ""
     local_introductions: List[Dict[str, Any]] = Field(default_factory=list)
     regional_introductions: List[Dict[str, Any]] = Field(default_factory=list)
     sessions: List[Dict[str, Any]] = Field(default_factory=list)
     review_30_day: Optional[date] = None
     review_90_day: Optional[date] = None
+    role_notes: str = ""
     role_specific_notes: List[str] = Field(default_factory=list)
     tool_access_notes: Dict[str, str] = Field(default_factory=dict)
     team_lunch: bool = False

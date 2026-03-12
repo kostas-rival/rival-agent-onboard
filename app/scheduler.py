@@ -107,7 +107,7 @@ class DailyCheckinGenerator:
         total = sum(
             len(group.tasks) for phase in template.phases for group in phase.groups
         )
-        completed = len([t for t in tasks if t.completed])
+        completed = len([t for t in tasks.values() if t.completed])
         pct = int((completed / total) * 100) if total > 0 else 0
 
         # Overdue tasks
@@ -140,7 +140,7 @@ class DailyCheckinGenerator:
                 t
                 for t in next_group.tasks
                 if not any(
-                    tp.task_id == t.task_id and tp.completed for tp in tasks
+                    tp.task_id == t.id and tp.completed for tp in tasks.values()
                 )
             ]
             for task in incomplete[:3]:

@@ -50,9 +50,9 @@ def handle_progress(
 def compute_full_progress(profile: OnboardingProfile) -> FullProgress:
     """Compute full progress for a profile."""
     template = load_template(profile.template_version)
-    progress = get_all_task_progress(profile.slack_user_id)
+    progress = get_all_task_progress(profile.user_id)
     day = get_onboarding_day(profile)
-    sessions = get_sessions(profile.slack_user_id)
+    sessions = get_sessions(profile.user_id)
 
     phase_progresses = []
     total_tasks = 0

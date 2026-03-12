@@ -14,7 +14,6 @@ from .models import (
     TaskGroup,
     TaskProgress,
     TaskStatus,
-    TeamIntroduction,
 )
 
 
@@ -102,7 +101,7 @@ def render_task_group_intro(group: TaskGroup, progress: Dict[str, TaskProgress])
 def render_progress_dashboard(progress: FullProgress) -> str:
     """Render the full progress dashboard."""
     profile = progress.profile
-    name = profile.preferred_name or profile.name
+    name = profile.preferred_name or profile.full_name
 
     lines = [
         f"📊 *{name}'s Onboarding Progress — Day {progress.onboarding_day}*",
@@ -134,35 +133,46 @@ def render_progress_dashboard(progress: FullProgress) -> str:
         lines.append("")
         lines.append("📅 *Upcoming sessions:*")
         for session in progress.upcoming_sessions[:3]:
-            time_str = session.scheduled_at.strftime("%a %d %b, %H:%M") if session.scheduled_at else "TBC"
-            lines.append(f"  → {session.title} — {session.presenter} ({time_str})")
+            if session.scheduled_at:
+                time_str = session.scheduled_at.strftime("%a %d %b, %H:%M")
+            elif session.scheduled_date:
+                time_str = session.scheduled_date.strftime("%a %d %b")
+            else:
+                time_str = "TBC"
+            presenter = f" — {session.presenter}" if session.presenter else ""
+            lines.append(f"  → {session.title}{presenter} ({time_str})")
 
     return "\n".join(lines)
 
 
-def render_schedule(sessions: List[OnboardingSession], introductions: List[TeamIntroduction]) -> str:
+def render_schedule(template=None, sessions: List[OnboardingSession] = None, profile: OnboardingProfile = None) -> str:
     """Render the upcoming schedule."""
     lines = ["📅 *Your Schedule*", ""]
+    sessions = sessions or []
 
     if sessions:
-        # Sort by date
-        sorted_sessions = sorted(
-            sessions,
-            key=lambda s: s.scheduled_at or __import__("datetime").datetime.max,
-        )
+        # Sort by scheduled_date or scheduled_at
+        def _sort_key(s):
+            if s.scheduled_date:
+                return __import__("datetime").datetime.combine(s.scheduled_date, __import__("datetime").time.min)
+            if s.scheduled_at:
+                return s.scheduled_at
+            return __import__("datetime").datetime.max
+
+        sorted_sessions = sorted(sessions, key=_sort_key)
         lines.append("*Onboarding Sessions:*")
         for s in sorted_sessions:
             check = "✅" if s.completed else "📚"
-            time_str = s.scheduled_at.strftime("%a %d %b, %H:%M") if s.scheduled_at else "TBC"
-            lines.append(f"  {check} {s.title} — {s.presenter} ({time_str})")
-
-    if introductions:
-        lines.append("")
-        lines.append("*Team 1-1s:*")
-        for i in introductions:
-            check = "✅" if i.completed else "👋"
-            sched = " _(scheduled)_" if i.scheduled else " _(not yet scheduled)_"
-            lines.append(f"  {check} {i.name} ({i.region}, {i.duration_minutes} min){sched}")
+            if s.scheduled_date:
+                time_str = s.scheduled_date.strftime("%a %d %b")
+            elif s.scheduled_at:
+                time_str = s.scheduled_at.strftime("%a %d %b, %H:%M")
+            else:
+                time_str = "TBC"
+            presenter = f" — {s.presenter}" if s.presenter else ""
+            lines.append(f"  {check} {s.title}{presenter} ({time_str})")
+    else:
+        lines.append("No sessions scheduled yet.")
 
     return "\n".join(lines)
 
@@ -186,7 +196,7 @@ def render_contacts(contacts: Dict[str, List[ContactPerson]], topic: Optional[st
     return "\n".join(lines)
 
 
-def render_admin_list(profiles: List[OnboardingProfile], progress_map: Dict[str, FullProgress]) -> str:
+def render_admin_list(profiles: List[OnboardingProfile], progress_map: Optional[Dict] = None) -> str:
     """Render the admin onboarding list view."""
     if not profiles:
         return "📋 No active onboardings at the moment."
@@ -194,9 +204,9 @@ def render_admin_list(profiles: List[OnboardingProfile], progress_map: Dict[str,
     lines = [f"📋 *Active Onboardings ({len(profiles)}):*", ""]
 
     for profile in profiles:
-        name = profile.name
+        name = profile.full_name
         role = profile.role
-        fp = progress_map.get(profile.slack_user_id)
+        fp = progress_map.get(profile.user_id)
 
         if fp:
             day = fp.onboarding_day
@@ -226,36 +236,34 @@ def render_admin_list(profiles: List[OnboardingProfile], progress_map: Dict[str,
     return "\n".join(lines)
 
 
-def render_analytics(analytics: Dict) -> str:
+def render_analytics(profiles: List[OnboardingProfile] = None, progress_map: Optional[Dict] = None, analytics: Optional[Dict] = None) -> str:
     """Render aggregate analytics."""
+    if analytics is None:
+        analytics = {}
+    
+    # Build analytics from profiles if passed directly
+    if profiles and progress_map:
+        active_count = len([p for p in profiles if p.status.value == "active"])
+        analytics = {
+            "active_count": active_count,
+            "completed_count": len([p for p in profiles if p.status.value == "completed"]),
+            "total_profiles": len(profiles),
+        }
+
     lines = [
         "📈 *Onboarding Analytics*",
         "",
         f"*Active:* {analytics.get('active_count', 0)} onboardings",
-        f"*Completed (last 6 months):* {analytics.get('completed_count', 0)}",
-        f"*Avg completion time:* {analytics.get('avg_completion_days', 'N/A')} days",
+        f"*Total profiles:* {analytics.get('total_profiles', analytics.get('completed_count', 0))}",
         "",
     ]
-
-    blockers = analytics.get("common_blockers", [])
-    if blockers:
-        lines.append("*Most common blockers:*")
-        for i, (task, avg_days) in enumerate(blockers[:5], 1):
-            lines.append(f"  {i}. {task} — avg {avg_days:.1f} days to complete")
-        lines.append("")
-
-    faq = analytics.get("frequent_questions", [])
-    if faq:
-        lines.append("*Most asked questions:*")
-        for i, (q, count) in enumerate(faq[:5], 1):
-            lines.append(f"  {i}. \"{q}\" ({count} times)")
 
     return "\n".join(lines)
 
 
 def render_daily_report(
     profiles: List[OnboardingProfile],
-    progress_map: Dict[str, FullProgress],
+    progress_map: Optional[Dict] = None,
 ) -> str:
     """Render the daily status report for admins."""
     from datetime import date
@@ -271,24 +279,8 @@ def render_daily_report(
         return "\n".join(lines)
 
     for profile in profiles:
-        fp = progress_map.get(profile.slack_user_id)
-        name = profile.preferred_name or profile.name
-
-        if fp:
-            day = fp.onboarding_day
-            bar = render_progress_bar(fp.total_completed, fp.total_tasks, 10)
-            pct = render_percentage(fp.total_completed, fp.total_tasks)
-            overdue_count = len(fp.overdue_tasks)
-
-            lines.append(f"*{name}* — Day {day} | {pct} {bar}")
-            if overdue_count > 0:
-                lines.append(f"  ⚠️ {overdue_count} overdue task(s)")
-            if fp.upcoming_sessions:
-                next_s = fp.upcoming_sessions[0]
-                lines.append(f"  📅 Next: {next_s.title} — {next_s.presenter}")
-        else:
-            lines.append(f"*{name}* — {profile.status.value}")
-
+        name = profile.preferred_name or profile.full_name
+        lines.append(f"*{name}* — {profile.role} ({profile.status.value})")
         lines.append("")
 
     return "\n".join(lines)

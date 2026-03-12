@@ -67,7 +67,7 @@ def handle_freeform(
         for phase in template.phases
         for group in phase.groups
     )
-    completed = len([t for t in tasks if t.completed])
+    completed = len([t for t in tasks.values() if t.completed])
 
     # Calculate day number
     from datetime import datetime, timezone
@@ -172,7 +172,6 @@ def _call_internal_agent(
         payload = {
             "text": request.text,
             "user_id": request.user_id,
-            "thread_id": request.thread_id,
             "provider": request.provider or "google",
             "model": request.model or "gemini-2.5-flash",
         }

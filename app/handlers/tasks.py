@@ -40,7 +40,7 @@ def handle_next_task(
 ) -> AgentInvocationResponse:
     """Handle 'next', 'continue', 'what's next'."""
     template = load_template(profile.template_version)
-    progress = get_all_task_progress(profile.slack_user_id)
+    progress = get_all_task_progress(profile.user_id)
 
     group = get_next_incomplete_group(profile, template, progress)
     if not group:
@@ -84,7 +84,7 @@ def handle_next_task(
             parts.append("\nLet me know when you've done these, or say *\"next\"* to move on.")
             response = "\n".join(parts)
 
-        update_profile(profile.slack_user_id, {"current_group": group.id})
+        update_profile(profile.user_id, {"current_group": group.id})
 
     return AgentInvocationResponse(
         response_text=response,
@@ -103,7 +103,7 @@ def handle_mark_complete(
 ) -> AgentInvocationResponse:
     """Handle task completion."""
     template = load_template(profile.template_version)
-    progress = get_all_task_progress(profile.slack_user_id)
+    progress = get_all_task_progress(profile.user_id)
 
     # Determine which task(s) to mark complete
     tasks_to_complete = _resolve_tasks(intent, template, profile)
@@ -134,9 +134,9 @@ def handle_mark_complete(
         existing = progress.get(task.id)
         if existing and existing.status in (TaskStatus.COMPLETED, TaskStatus.VERIFIED):
             continue
-        mark_task_completed(profile.slack_user_id, task.id)
+        mark_task_completed(profile.user_id, task.id)
         log_interaction(
-            profile.slack_user_id,
+            profile.user_id,
             InteractionType.TASK_COMPLETED,
             f"Completed: {task.title}",
             {"task_id": task.id},
@@ -147,7 +147,7 @@ def handle_mark_complete(
         response = "Those tasks are already marked as complete! 👍\n\nSay *\"next\"* for what's next."
     else:
         # Refresh progress
-        progress = get_all_task_progress(profile.slack_user_id)
+        progress = get_all_task_progress(profile.user_id)
         all_tasks = get_all_tasks(template)
         total = len([t for t in all_tasks if not t.auto_complete])
         done = len([t for t in all_tasks if progress.get(t.id) and progress[t.id].status in (TaskStatus.COMPLETED, TaskStatus.VERIFIED)])
@@ -191,9 +191,9 @@ def handle_skip_task(
     else:
         skipped_names = []
         for task in tasks_to_skip:
-            mark_task_skipped(profile.slack_user_id, task.id)
+            mark_task_skipped(profile.user_id, task.id)
             log_interaction(
-                profile.slack_user_id,
+                profile.user_id,
                 InteractionType.TASK_SKIPPED,
                 f"Skipped: {task.title}",
                 {"task_id": task.id},
@@ -242,7 +242,7 @@ def _resolve_tasks(
 
     # If still empty, try to match from current group
     if not tasks:
-        progress = get_all_task_progress(profile.slack_user_id)
+        progress = get_all_task_progress(profile.user_id)
         group = get_next_incomplete_group(profile, template, progress)
         if group:
             # If there's only one incomplete task in the current group, use it
