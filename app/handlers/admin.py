@@ -41,7 +41,8 @@ def _load_admin_ids() -> set[str]:
     global ADMIN_IDS  # noqa: PLW0603
     if not ADMIN_IDS:
         settings = get_settings()
-        ADMIN_IDS = set(settings.admin_slack_ids)
+        raw = settings.admin_slack_ids.strip()
+        ADMIN_IDS = {s.strip() for s in raw.split(",") if s.strip()} if raw else set()
     return ADMIN_IDS
 
 
