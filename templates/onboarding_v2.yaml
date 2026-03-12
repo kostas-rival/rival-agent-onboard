@@ -23,7 +23,9 @@ phases:
               - "Start to explore Rival Workspace on Google Drive"
             links:
               - label: "Rival Workspace"
-                url: "https://drive.google.com/drive/"
+                url: "https://drive.google.com/drive/folders/0ABB7ZgQp2H9SUk9PVA"
+              - label: "Google Calendar — Working Hours & Location"
+                url: "https://support.google.com/calendar/answer/7638168?hl=en&co=GENIE.Platform%3DDesktop"
             tips: "Block focus time in your calendar early — it's the best way to protect deep work!"
 
           - id: slack_setup
@@ -33,17 +35,26 @@ phases:
               - "Profile picture, contact number, role"
               - "Add useful info — location, working hours, etc."
               - "Drop a note to the team in #general when you're all set"
+            links:
+              - label: "Slack Help"
+                url: "https://slack.com/help/categories/360000049063"
             verification: "slack_profile_check"
             tips: "The team loves a good intro — share something fun about yourself!"
 
           - id: slack_policy
             title: "Read our Slack Policy"
             description: "Our Slack guidelines are in the Rival Handbook."
+            links:
+              - label: "Slack Policy in Rival Handbook"
+                url: "https://docs.google.com/document/d/1QJmVU7-GdDIWdwr0dZ2TsmJz4M82shkkR0xbD9G_kkM/edit?tab=t.0#heading=h.zbsy1bg97wbp"
             internal_query: "What is our Slack policy?"
 
           - id: charlie_hr
             title: "Complete your CharlieHR profile"
             description: "Your HR portal — your invite will be in your Rival inbox. Complete your profile if you haven't already. We'll cover how we use this during onboarding."
+            links:
+              - label: "CharlieHR"
+                url: "https://wearerival.charliehr.com/"
             verification: "charlie_hr_check"
 
           - id: onepassword
@@ -51,15 +62,17 @@ phases:
             description: "A safe and secure place to store all your passwords. With the Chrome toolbar add-on, you can automatically fill in logins."
             links:
               - label: "1Password Setup"
-                url: "https://start.1password.com/sign-up"
+                url: "https://team-rival.1password.com/teamjoin/invitation/3TZCLMHMMZAGHM74IFUGBDRTVM"
             tips: "Within Rival's 1Password, you can be added to 'Vaults' for team-shared logins including creative, finance, media, operations, paid media, and product accounts."
 
           - id: productive_setup
             title: "Log into Productive"
             description: "Our project management and time tracking tool. You'll manage your project tasks and track your time, submitting hours each Friday."
             links:
-              - label: "Calendar & Time Tracking Guide"
-                url: "https://www.loom.com/"
+              - label: "Calendar & Time Tracking Guide (Video)"
+                url: "https://drive.google.com/file/d/15lbuJ4nzoQPu9QKeChBOct36fRNigPtv/view?usp=sharing"
+              - label: "Productive Dashboard"
+                url: "https://app.productive.io/50001-we-are-rival/dashboards/173195"
             verification: "productive_check"
             tips: "Check out the video guide that shows how to link your calendar and track your hours."
 
@@ -70,6 +83,9 @@ phases:
           - id: ri_channel
             title: "Visit #rival-intelligence and read the user guide"
             description: "Check out the Slack channel for the overview and real-life examples of how Rival Intelligence is used."
+            links:
+              - label: "User Guide & Overview"
+                url: "https://rivalspace.slack.com/docs/T02ADTDG54M/F0ADMLA41LP"
 
           - id: ri_first_use
             title: "Use Rival Intelligence at least once"
@@ -136,6 +152,9 @@ phases:
         tasks:
           - id: handbook
             title: "Read the Rival Handbook & our Policies"
+            links:
+              - label: "Rival Handbook"
+                url: "https://docs.google.com/document/d/1QJmVU7-GdDIWdwr0dZ2TsmJz4M82shkkR0xbD9G_kkM/edit"
             internal_query: "Where can I find the Rival handbook and our policies?"
 
           - id: content_hub
@@ -147,13 +166,22 @@ phases:
           - id: org_chart
             title: "Take a look at our Org Chart on CharlieHR"
             description: "Understand how everyone fits together. The Org Chart on CharlieHR might be helpful for team intro meetings too!"
+            links:
+              - label: "Org Chart on CharlieHR"
+                url: "https://wearerival.charliehr.com/people"
 
           - id: delivery_sop
             title: "Read the Delivery and Revenue SOP"
+            links:
+              - label: "Delivery and Revenue SOP"
+                url: "https://docs.google.com/document/d/1O_mvBTxodpBLLGnHn1MtsZd32wN0-hGGE409g8on8FY/edit"
             internal_query: "What is the Delivery and Revenue SOP?"
 
           - id: dev_review_process
             title: "Read the Rival Development Review Process"
+            links:
+              - label: "Development Review Process"
+                url: "https://docs.google.com/document/d/13uodsPm5UyHEvGafO5pGuv6udsRKOOBLjxjg6JoFCLQ/edit"
             internal_query: "How do development reviews work at Rival?"
 
           - id: social_channels
@@ -180,15 +208,21 @@ phases:
             description: "Create your own GTKY card and add to the team sheet. You'll be asked to introduce yourself in the monthly meeting using your card. While you're there, scroll through others' cards to learn about the rest of the team!"
             links:
               - label: "GTKY Cards"
-                url: "https://docs.google.com/"
+                url: "https://docs.google.com/presentation/d/1RYsu3nJsF85JmF7EAlxl9QXDgiD9odR6SeeQjJc1mmg/edit#slide=id.g2e0c160f96e_0_70"
 
           - id: headshot_bio
             title: "Headshot & bio for Meet the Team page"
             description: "A professional headshot and bio for our website's Meet the Team page."
+            links:
+              - label: "Meet the Team"
+                url: "https://www.wearerival.com/who-we-are#team"
 
           - id: linkedin_banner
             title: "Update your LinkedIn with Rival banner (optional)"
             description: "We have Rival banners to use on your personal LinkedIn page if you'd like."
+            links:
+              - label: "Rival LinkedIn Banners"
+                url: "https://drive.google.com/drive/folders/1SPiV_jsvcQw3362wN10umjNQTQG56IlS?usp=drive_link"
             optional: true
 
   - id: reviews
