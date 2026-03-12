@@ -29,11 +29,11 @@ steps:
       - --set-env-vars
       - ONBOARDING_AGENT_INTERNAL_AGENT_URL=https://rival-agent-internal-730268527569.europe-west1.run.app
       - --set-env-vars
-      - ONBOARDING_AGENT_DRIVE_FOLDER_ID=1sYBRHgFokkAGYegaJtiMYreyLoBq4VRa
+      - ONBOARDING_AGENT_DRIVE_FOLDER_ID=1mpC_DiIEXd2EMzgQTCL9fvTw6lF7VZJq
       - --set-env-vars
       - ONBOARDING_AGENT_TEMPLATE_DOC_ID=1d_3mw-Td8MZcycTiYfsRt-syF52XvurE02xuiMyy9ZE
       - --set-env-vars
-      - ONBOARDING_AGENT_ADMIN_SLACK_IDS=kostas
+      - ONBOARDING_AGENT_ADMIN_SLACK_IDS=U09B8E7F7GX
       - --set-env-vars
       - ONBOARDING_AGENT_DAILY_REPORT_CHANNEL=
       - --set-secrets
