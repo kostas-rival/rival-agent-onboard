@@ -90,9 +90,16 @@ class OnboardingIntent(BaseModel):
 
 # ── Fast pattern matching (no LLM needed) ─────────────────────────────────
 
-_GREETING_PATTERNS = {"hello", "hi", "hey", "help", "start", "get started"}
+_GREETING_PATTERNS = {"hello", "hi", "hey", "start", "get started"}
 _NEXT_PATTERNS = {"next", "continue", "what's next", "whats next", "move on", "keep going"}
-_PROGRESS_PATTERNS = {"progress", "how am i doing", "status", "dashboard", "how's it going"}
+_AFFIRMATIVE_PATTERNS = {"yes", "yep", "yeah", "sure", "ok", "okay", "let's go", "lets go", "go", "ready", "let's do it", "lets do it", "begin", "bring it on"}
+_PROGRESS_PATTERNS = {
+    "progress", "how am i doing", "status", "dashboard", "how's it going",
+    "how far", "where am i", "what have i done", "which things",
+    "check my", "my progress", "what's left", "whats left",
+    "what do i need to do", "what should i do", "what's remaining",
+    "show me my", "can you check", "check which",
+}
 _DONE_KEYWORDS = {
     "done", "finished", "completed", "set up", "sorted", "all set",
     "i've done", "ive done", "i have done", "i've set up", "ive set up",
@@ -211,9 +218,28 @@ def _fast_classify(text: str, is_admin: bool) -> Optional[OnboardingIntent]:
     if lower in _NEXT_PATTERNS or any(p in lower for p in _NEXT_PATTERNS):
         return OnboardingIntent(intent="next_task", confidence=0.9)
 
-    # Progress check
+    # Affirmative / get started ("yes", "let's go", "sure")
+    if lower in _AFFIRMATIVE_PATTERNS or any(p in lower for p in _AFFIRMATIVE_PATTERNS):
+        return OnboardingIntent(intent="get_started", confidence=0.9)
+
+    # Admin help — admin asking HOW to use the onboarding system
+    if is_admin and any(p in lower for p in (
+        "how can i onboard", "how do i onboard", "how to onboard",
+        "onboard someone", "onboard a new", "brief someone",
+        "how do i add", "how do i create", "set up onboarding",
+        "briefing process", "how does briefing", "admin help",
+    )):
+        return OnboardingIntent(intent="admin_help", confidence=0.92)
+
+    # Progress check — must be BEFORE mark_complete to avoid false positives
+    # e.g. "can you check which things i have done" → progress not mark_complete
     if any(p in lower for p in _PROGRESS_PATTERNS):
         return OnboardingIntent(intent="progress", confidence=0.9)
+
+    # Help / what can you do
+    if any(p in lower for p in ("help", "what can you", "how do i", "how does this", "what do i")):
+        if not any(kw in lower for kw in _TASK_KEYWORD_MAP):
+            return OnboardingIntent(intent="help", confidence=0.85)
 
     # Task completion
     task_ids = _match_task_keywords(lower)

@@ -63,6 +63,7 @@ class OnboardingAgent:
             "admin_activate",
             "admin_pause",
             "admin_complete",
+            "admin_help",
         }:
             return self._handle_admin(request, intent)
 
@@ -165,7 +166,7 @@ class OnboardingAgent:
             return handle_skip_task(request, profile, intent)
 
         # ── Progress & schedule ───────────────────────────────────────────
-        if intent_name in ("progress", "show_progress"):
+        if intent_name in ("progress", "show_progress", "help"):
             return handle_progress(request, profile)
 
         if intent_name in ("schedule", "show_schedule"):
@@ -213,6 +214,7 @@ class OnboardingAgent:
             "admin_complete": lambda: handle_complete_onboarding(
                 request, target_name=intent.entity
             ),
+            "admin_help": lambda: _handle_admin_help(request),
         }
 
         handler = handlers.get(intent.intent)
@@ -233,16 +235,32 @@ class OnboardingAgent:
         request: AgentInvocationRequest,
     ) -> AgentInvocationResponse:
         """Handle a greeting from someone without a profile."""
+        admin = is_admin(request.user_id)
+        if admin:
+            return AgentInvocationResponse(
+                response_text=(
+                    "👋 Hello! I'm the Rival Intelligence onboarding assistant.\n\n"
+                    "As an admin, you can onboard new starters. Say *\"how do I onboard someone?\"* "
+                    "for the full process, or use any of these commands:\n\n"
+                    "• Paste a Google Doc URL — process a briefing\n"
+                    "• `list active` — see all onboardings\n"
+                    "• `activate <name>` — activate a pending profile\n"
+                    "• `analytics` — aggregate stats"
+                ),
+                steps=["Admin greeted"],
+                citations=[],
+                provider=request.provider,
+                model=request.model,
+                agent_id="onboarding",
+            )
+
         return AgentInvocationResponse(
             response_text=(
                 "👋 Hello! I'm the Rival Intelligence onboarding assistant.\n\n"
                 "I help new starters navigate their first 30 days — from tool setup "
                 "to meeting the team and understanding how we work.\n\n"
                 "If you're a new starter, your line manager will set up your onboarding "
-                "profile. Once that's done, I'll be here to guide you through everything!\n\n"
-                "If you're an admin, you can:\n"
-                "• `read briefing <url>` — Process a briefing Google Doc\n"
-                "• `list onboardings` — See all onboarding profiles"
+                "profile. Once that's done, I'll be here to guide you through everything!"
             ),
             steps=["Unknown user greeted"],
             citations=[],
@@ -250,3 +268,36 @@ class OnboardingAgent:
             model=request.model,
             agent_id="onboarding",
         )
+
+def _handle_admin_help(request: AgentInvocationRequest) -> AgentInvocationResponse:
+    """Explain how to use the onboarding system to an admin."""
+    return AgentInvocationResponse(
+        response_text=(
+            "📋 *How to onboard a new starter*\n\n"
+            "*Step 1 — Prepare a briefing doc*\n"
+            "Create a Google Doc with the new starter's details:\n"
+            "• Name, role, department, start date\n"
+            "• Line manager\n"
+            "• Team introductions (who they should meet)\n"
+            "• Scheduled onboarding sessions\n"
+            "• Any special tool access or notes\n\n"
+            "*Step 2 — Share the briefing*\n"
+            "Paste the Google Doc URL here:\n"
+            "`[onboarding] https://docs.google.com/document/d/YOUR_DOC_ID/edit`\n\n"
+            "I'll read the doc, extract the details, and create an onboarding profile.\n\n"
+            "*Step 3 — Activate*\n"
+            "Once ready (usually on their start date), run:\n"
+            "`[onboarding] activate <their name>`\n\n"
+            "The new starter can then message me and I'll guide them through everything.\n\n"
+            "*Other commands:*\n"
+            "• `list active` — see all onboardings\n"
+            "• `pause <name>` — pause an onboarding\n"
+            "• `analytics` — aggregate stats\n"
+            "• `report` — admin digest\n"
+        ),
+        steps=["Admin help"],
+        citations=[],
+        provider=request.provider,
+        model=request.model,
+        agent_id="onboarding",
+    )

@@ -109,7 +109,7 @@ def handle_mark_complete(
     tasks_to_complete = _resolve_tasks(intent, template, profile, raw_text=request.text)
 
     if not tasks_to_complete:
-        # Can't determine which task — show current group's incomplete tasks
+        # Can't determine which task — show current group's incomplete tasks and help
         progress_map = get_all_task_progress(profile.user_id)
         group = get_next_incomplete_group(profile, template, progress_map)
         if group:
@@ -117,16 +117,28 @@ def handle_mark_complete(
                 t for t in group.tasks
                 if not progress_map.get(t.id) or progress_map[t.id].status == TaskStatus.NOT_STARTED
             ]
+            completed_in_group = [
+                t for t in group.tasks
+                if progress_map.get(t.id) and progress_map[t.id].status in (TaskStatus.COMPLETED, TaskStatus.VERIFIED)
+            ]
             if incomplete:
-                task_list = "\n".join(f"• _\"{t.title}\"_" for t in incomplete)
+                completed_summary = ""
+                if completed_in_group:
+                    completed_summary = (
+                        "\n\n✅ *Already done:*\n"
+                        + "\n".join(f"• ~{t.title}~" for t in completed_in_group)
+                        + "\n"
+                    )
+                task_list = "\n".join(f"• _{t.title}_" for t in incomplete)
                 response = (
-                    f"Which task have you completed? Your current tasks are:\n\n"
-                    f"{task_list}\n\n"
-                    f"Just name the task and I'll tick it off! 🎯"
+                    f"Here's where you're at with *{group.name}*:{completed_summary}\n"
+                    f"📋 *Still to do:*\n{task_list}\n\n"
+                    f"Just tell me which one you've done — e.g. _\"done with Slack\"_ — and I'll tick it off! 🎯\n"
+                    f"Or say *\"next\"* to see the full group with links."
                 )
             else:
                 response = (
-                    "All tasks in your current group are done! 🎉\n\n"
+                    f"All tasks in *{group.name}* are done! 🎉\n\n"
                     "Say *\"next\"* to move on to the next group."
                 )
         else:

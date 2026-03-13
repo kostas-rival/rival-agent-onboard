@@ -127,11 +127,16 @@ def _returning_day1(name: str, profile: OnboardingProfile, template) -> str:
 
 def _returning_welcome(name: str, profile: OnboardingProfile, day: int, template) -> str:
     """Welcome back on subsequent days."""
+    from ..handlers.admin import is_admin
+    admin_hint = ""
+    if is_admin(profile.user_id):
+        admin_hint = "\n\nAs an admin you can also say *\"how do I onboard someone?\"* for the briefing process."
+
     return (
-        f"👋 Hey {name}! Day {day} at Rival.\n\n"
+        f":wave: Hey {name}! Day {day} at Rival.\n\n"
         f"Say *\"progress\"* to see your dashboard, *\"next\"* to pick up where you left off, "
         f"or *\"schedule\"* to see upcoming sessions.\n\n"
-        f"Or just ask me anything!"
+        f"Or just ask me anything!{admin_hint}"
     )
 
 
