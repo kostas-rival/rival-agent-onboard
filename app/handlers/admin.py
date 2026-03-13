@@ -29,6 +29,7 @@ from ..state import (
     update_profile,
 )
 from ..template import load_template
+from .progress import compute_full_progress
 
 log = logging.getLogger(__name__)
 
@@ -250,7 +251,13 @@ def handle_admin_list(
     if not profiles:
         response = "No onboarding profiles found."
     else:
-        response = render_admin_list(profiles)
+        progress_map = {}
+        for p in profiles:
+            try:
+                progress_map[p.user_id] = compute_full_progress(p)
+            except Exception:
+                log.warning("Failed to compute progress for %s", p.user_id)
+        response = render_admin_list(profiles, progress_map=progress_map)
 
     return AgentInvocationResponse(
         response_text=response,
@@ -267,13 +274,15 @@ def handle_analytics(
 ) -> AgentInvocationResponse:
     """Show aggregate onboarding analytics."""
     profiles = list_all_profiles()
-    all_progress = {}
+    progress_map = {}
 
     for p in profiles:
-        tasks = get_all_task_progress(p.user_id)
-        all_progress[p.user_id] = tasks
+        try:
+            progress_map[p.user_id] = compute_full_progress(p)
+        except Exception:
+            log.warning("Failed to compute progress for %s", p.user_id)
 
-    response = render_analytics(profiles, all_progress)
+    response = render_analytics(profiles, progress_map)
 
     return AgentInvocationResponse(
         response_text=response,
@@ -290,13 +299,15 @@ def handle_daily_report(
 ) -> AgentInvocationResponse:
     """Generate and return the daily admin report."""
     profiles = list_active_profiles()
-    all_progress = {}
+    progress_map = {}
 
     for p in profiles:
-        tasks = get_all_task_progress(p.user_id)
-        all_progress[p.user_id] = tasks
+        try:
+            progress_map[p.user_id] = compute_full_progress(p)
+        except Exception:
+            log.warning("Failed to compute progress for %s", p.user_id)
 
-    response = render_daily_report(profiles, all_progress)
+    response = render_daily_report(profiles, progress_map)
 
     return AgentInvocationResponse(
         response_text=response,
