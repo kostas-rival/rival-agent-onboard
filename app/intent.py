@@ -92,7 +92,7 @@ class OnboardingIntent(BaseModel):
 
 _GREETING_PATTERNS = {"hello", "hi", "hey", "start", "get started"}
 _NEXT_PATTERNS = {"next", "continue", "what's next", "whats next", "move on", "keep going"}
-_AFFIRMATIVE_PATTERNS = {"yes", "yep", "yeah", "sure", "ok", "okay", "let's go", "lets go", "go", "ready", "let's do it", "lets do it", "begin", "bring it on"}
+_AFFIRMATIVE_PATTERNS = {"yes", "yep", "yeah", "sure", "ok", "okay", "let's go", "lets go", "ready", "let's do it", "lets do it", "begin", "bring it on"}
 _PROGRESS_PATTERNS = {
     "progress", "how am i doing", "status", "dashboard", "how's it going",
     "how far", "where am i", "what have i done", "which things",
@@ -101,8 +101,9 @@ _PROGRESS_PATTERNS = {
     "show me my", "can you check", "check which",
 }
 _DONE_KEYWORDS = {
-    "done", "finished", "completed", "set up", "sorted", "all set",
+    "done", "finished", "completed", "sorted", "all set",
     "i've done", "ive done", "i have done", "i've set up", "ive set up",
+    "i set up", "i have set up",
     "i've finished", "ive finished", "i've completed", "ive completed",
     "i've sorted", "ive sorted",
     "i read", "i've read", "ive read",
@@ -219,7 +220,7 @@ def _fast_classify(text: str, is_admin: bool) -> Optional[OnboardingIntent]:
         return OnboardingIntent(intent="next_task", confidence=0.9)
 
     # Affirmative / get started ("yes", "let's go", "sure")
-    if lower in _AFFIRMATIVE_PATTERNS or any(p in lower for p in _AFFIRMATIVE_PATTERNS):
+    if lower in _AFFIRMATIVE_PATTERNS:
         return OnboardingIntent(intent="get_started", confidence=0.9)
 
     # Admin help — admin asking HOW to use the onboarding system
