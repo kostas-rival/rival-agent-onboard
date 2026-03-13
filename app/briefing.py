@@ -501,11 +501,16 @@ _BRIEFING_SECTIONS: List[tuple] = [
 ]
 
 
-def create_blank_briefing_doc(admin_name: str = "Admin") -> Dict[str, str]:
+def create_blank_briefing_doc(
+    admin_name: str = "Admin",
+    starter_name: Optional[str] = None,
+) -> Dict[str, str]:
     """Create a new Google Doc pre-populated with the briefing template structure.
 
     The doc is placed in the configured Drive folder and made editable by
     anyone with the link so the admin can fill it in immediately.
+
+    If *starter_name* is provided it is pre-filled in the "Name:" field.
 
     Returns ``{"doc_id": ..., "doc_url": ...}``.
     """
@@ -513,7 +518,8 @@ def create_blank_briefing_doc(admin_name: str = "Admin") -> Dict[str, str]:
     drive = _get_drive_service()
     docs = _get_docs_service()
 
-    title = f"Onboarding Briefing — {date.today().strftime('%d %b %Y')} ({admin_name})"
+    label = starter_name or admin_name
+    title = f"Onboarding Briefing — {label} ({date.today().strftime('%d %b %Y')})"
 
     # 1) Create a blank document in the target folder
     file_meta = drive.files().create(
@@ -530,10 +536,18 @@ def create_blank_briefing_doc(admin_name: str = "Admin") -> Dict[str, str]:
     # 2) Build the insertText + updateParagraphStyle requests.
     #    The Docs API inserts at an *index*.  We track the running index,
     #    starting at 1 (the body always starts with index 1).
+    #    If a starter_name was provided, pre-fill the Name: field.
+    sections = list(_BRIEFING_SECTIONS)
+    if starter_name:
+        sections = [
+            (f"Name: {starter_name}", style) if text == "Name: " else (text, style)
+            for text, style in sections
+        ]
+
     requests_list: list = []
     idx = 1
 
-    for text_body, style in _BRIEFING_SECTIONS:
+    for text_body, style in sections:
         content = text_body + "\n"
         requests_list.append({
             "insertText": {

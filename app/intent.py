@@ -226,12 +226,20 @@ def _fast_classify(text: str, is_admin: bool) -> Optional[OnboardingIntent]:
         return OnboardingIntent(intent="get_started", confidence=0.9)
 
     # Admin: start a new onboarding — directly triggers doc creation
-    if is_admin and any(p in lower for p in (
-        "onboard someone", "onboard a new", "new onboarding",
-        "new starter", "add new starter", "create onboarding",
-        "start onboarding", "i want to onboard", "i need to onboard",
-    )):
-        return OnboardingIntent(intent="admin_new_onboard", confidence=0.95)
+    if is_admin:
+        # "onboard <name>" — extract the name if present
+        if lower.startswith("onboard "):
+            import re
+            # Exclude patterns that are clearly questions ("onboard someone" is fine)
+            rest = text.strip()[len("onboard "):].strip()
+            entity = rest if rest and rest.lower() not in ("someone", "a new", "a new starter") else None
+            return OnboardingIntent(intent="admin_new_onboard", entity=entity, confidence=0.95)
+        if any(p in lower for p in (
+            "new onboarding", "new starter", "add new starter",
+            "create onboarding", "start onboarding",
+            "i want to onboard", "i need to onboard",
+        )):
+            return OnboardingIntent(intent="admin_new_onboard", confidence=0.95)
 
     # Admin: finished filling in the briefing doc
     if is_admin and any(p in lower for p in (

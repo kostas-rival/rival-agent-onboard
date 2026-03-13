@@ -61,6 +61,7 @@ def is_admin(user_id: str) -> bool:
 
 def handle_new_onboard(
     request: AgentInvocationRequest,
+    starter_name: Optional[str] = None,
 ) -> AgentInvocationResponse:
     """Create a Google Doc briefing template and ask the admin to fill it in."""
     try:
@@ -70,16 +71,17 @@ def handle_new_onboard(
         if admin_profile:
             admin_name = admin_profile.preferred_name or admin_profile.full_name
 
-        doc = create_blank_briefing_doc(admin_name=admin_name)
+        doc = create_blank_briefing_doc(admin_name=admin_name, starter_name=starter_name)
         save_pending_briefing(request.user_id, doc["doc_id"], doc["doc_url"])
 
+        name_note = f" for *{starter_name}*" if starter_name else ""
         response = (
-            "📄 I've created a briefing document for you:\n\n"
+            f"📄 I've created a briefing document{name_note}:\n\n"
             f"<{doc['doc_url']}|➡️ Open Briefing Doc>\n\n"
-            "Fill in the new starter's details — name, role, start date, "
+            "Fill in the details — role, start date, "
             "team introductions, sessions, etc.\n\n"
-            "When you're done, just come back here and say *\"done with briefing\"* "
-            "and I'll read the doc and set everything up automatically."
+            "When you're done, come back and say *\"done with briefing\"* "
+            "and I'll read the doc and set everything up."
         )
     except Exception:
         log.exception("Failed to create blank briefing doc")

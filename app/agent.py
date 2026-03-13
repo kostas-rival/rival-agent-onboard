@@ -210,7 +210,7 @@ class OnboardingAgent:
 
         handlers = {
             "admin_read_briefing": lambda: handle_read_briefing(request),
-            "admin_new_onboard": lambda: handle_new_onboard(request),
+            "admin_new_onboard": lambda: handle_new_onboard(request, starter_name=intent.entity),
             "admin_briefing_done": lambda: handle_briefing_done(request),
             "admin_list": lambda: handle_admin_list(request),
             "admin_analytics": lambda: handle_analytics(request),
