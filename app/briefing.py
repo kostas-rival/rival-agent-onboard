@@ -441,3 +441,137 @@ def read_briefing_from_url(url_or_id: str) -> BriefingData:
     raw_text = read_google_doc(doc_id)
     briefing = parse_briefing_doc(raw_text)
     return briefing
+
+
+# ── Blank Briefing Doc Creation ────────────────────────────────────────────
+
+# Content blocks for the blank briefing document.  Each tuple is
+# (text, style) where style is "HEADING_1", "HEADING_2", or "NORMAL_TEXT".
+_BRIEFING_SECTIONS: List[tuple] = [
+    ("Onboarding Briefing", "HEADING_1"),
+    (
+        "Fill in the details below and tell me when you're done. "
+        "I'll read this doc and set everything up automatically.\n",
+        "NORMAL_TEXT",
+    ),
+    ("New Starter Details", "HEADING_2"),
+    ("Name: ", "NORMAL_TEXT"),
+    ("Preferred name: ", "NORMAL_TEXT"),
+    ("Role: ", "NORMAL_TEXT"),
+    ("Team: ", "NORMAL_TEXT"),
+    ("Start date: ", "NORMAL_TEXT"),
+    ("Location: ", "NORMAL_TEXT"),
+    ("Line manager: ", "NORMAL_TEXT"),
+    ("Line manager Slack handle: @", "NORMAL_TEXT"),
+    ("Slack user ID (if known): ", "NORMAL_TEXT"),
+    ("", "NORMAL_TEXT"),
+    ("Team Introductions", "HEADING_2"),
+    (
+        "(List who the new starter should meet, grouped by region.)\n",
+        "NORMAL_TEXT",
+    ),
+    ("Local 1-1s:", "NORMAL_TEXT"),
+    ("- ", "NORMAL_TEXT"),
+    ("", "NORMAL_TEXT"),
+    ("Regional 1-1s:", "NORMAL_TEXT"),
+    ("- US: ", "NORMAL_TEXT"),
+    ("- SA: ", "NORMAL_TEXT"),
+    ("", "NORMAL_TEXT"),
+    ("Onboarding Sessions", "HEADING_2"),
+    (
+        "(List any booked sessions — format: Title — Presenter (date, time))\n",
+        "NORMAL_TEXT",
+    ),
+    ("- ", "NORMAL_TEXT"),
+    ("", "NORMAL_TEXT"),
+    ("Review Schedule", "HEADING_2"),
+    ("30-day review: ", "NORMAL_TEXT"),
+    ("90-day review: ", "NORMAL_TEXT"),
+    ("", "NORMAL_TEXT"),
+    ("Role-Specific Notes", "HEADING_2"),
+    ("(Anything specific to this role — tools, projects, reading, etc.)\n", "NORMAL_TEXT"),
+    ("- ", "NORMAL_TEXT"),
+    ("", "NORMAL_TEXT"),
+    ("Tool Access", "HEADING_2"),
+    (
+        "(Note any special tool invites or access that should be confirmed.)\n",
+        "NORMAL_TEXT",
+    ),
+    ("- ", "NORMAL_TEXT"),
+]
+
+
+def create_blank_briefing_doc(admin_name: str = "Admin") -> Dict[str, str]:
+    """Create a new Google Doc pre-populated with the briefing template structure.
+
+    The doc is placed in the configured Drive folder and made editable by
+    anyone with the link so the admin can fill it in immediately.
+
+    Returns ``{"doc_id": ..., "doc_url": ...}``.
+    """
+    settings = get_settings()
+    drive = _get_drive_service()
+    docs = _get_docs_service()
+
+    title = f"Onboarding Briefing — {date.today().strftime('%d %b %Y')} ({admin_name})"
+
+    # 1) Create a blank document in the target folder
+    file_meta = drive.files().create(
+        body={
+            "name": title,
+            "mimeType": "application/vnd.google-apps.document",
+            "parents": [settings.drive_folder_id],
+        },
+        fields="id",
+    ).execute()
+    doc_id = file_meta["id"]
+    log.info("Created blank briefing doc: %s", doc_id)
+
+    # 2) Build the insertText + updateParagraphStyle requests.
+    #    The Docs API inserts at an *index*.  We track the running index,
+    #    starting at 1 (the body always starts with index 1).
+    requests_list: list = []
+    idx = 1
+
+    for text_body, style in _BRIEFING_SECTIONS:
+        content = text_body + "\n"
+        requests_list.append({
+            "insertText": {
+                "location": {"index": idx},
+                "text": content,
+            }
+        })
+        # Apply paragraph style
+        requests_list.append({
+            "updateParagraphStyle": {
+                "range": {
+                    "startIndex": idx,
+                    "endIndex": idx + len(content),
+                },
+                "paragraphStyle": {"namedStyleType": style},
+                "fields": "namedStyleType",
+            }
+        })
+        idx += len(content)
+
+    if requests_list:
+        docs.documents().batchUpdate(
+            documentId=doc_id,
+            body={"requests": requests_list},
+        ).execute()
+
+    # 3) Make editable by anyone with the link
+    try:
+        drive.permissions().create(
+            fileId=doc_id,
+            body={
+                "role": "writer",
+                "type": "anyone",
+            },
+        ).execute()
+    except Exception:
+        log.warning("Could not set link-sharing on briefing doc %s", doc_id, exc_info=True)
+
+    doc_url = f"https://docs.google.com/document/d/{doc_id}/edit"
+    log.info("Blank briefing doc ready: %s", doc_url)
+    return {"doc_id": doc_id, "doc_url": doc_url}

@@ -33,6 +33,8 @@ INTENTS:
 - skip_task: User wants to skip a task ("skip", "not now", "later")
 - session_prep: User asks about preparing for an upcoming session
 - admin_read_briefing: Admin providing a Google Doc URL to read a briefing
+- admin_new_onboard: Admin wants to start onboarding someone new ("onboard someone", "new starter")
+- admin_briefing_done: Admin says they finished filling in the briefing doc ("done with briefing", "filled it in")
 - admin_create: Admin creating a new onboarding profile manually
 - admin_list: Admin asking to list active onboardings
 - admin_progress: Admin asking about a specific person's progress ("progress for @name")
@@ -223,12 +225,30 @@ def _fast_classify(text: str, is_admin: bool) -> Optional[OnboardingIntent]:
     if lower in _AFFIRMATIVE_PATTERNS:
         return OnboardingIntent(intent="get_started", confidence=0.9)
 
+    # Admin: start a new onboarding — directly triggers doc creation
+    if is_admin and any(p in lower for p in (
+        "onboard someone", "onboard a new", "new onboarding",
+        "new starter", "add new starter", "create onboarding",
+        "start onboarding", "i want to onboard", "i need to onboard",
+    )):
+        return OnboardingIntent(intent="admin_new_onboard", confidence=0.95)
+
+    # Admin: finished filling in the briefing doc
+    if is_admin and any(p in lower for p in (
+        "done with briefing", "finished briefing", "filled in the doc",
+        "briefing is ready", "briefing done", "doc is ready",
+        "i filled it in", "i've filled it in", "filled it out",
+        "i've filled it out", "done filling", "finished filling",
+        "completed the doc", "completed the briefing",
+    )):
+        return OnboardingIntent(intent="admin_briefing_done", confidence=0.95)
+
     # Admin help — admin asking HOW to use the onboarding system
     if is_admin and any(p in lower for p in (
         "how can i onboard", "how do i onboard", "how to onboard",
-        "onboard someone", "onboard a new", "brief someone",
-        "how do i add", "how do i create", "set up onboarding",
-        "briefing process", "how does briefing", "admin help",
+        "brief someone", "how do i add", "how do i create",
+        "set up onboarding", "briefing process", "how does briefing",
+        "admin help",
     )):
         return OnboardingIntent(intent="admin_help", confidence=0.92)
 

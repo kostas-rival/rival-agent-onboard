@@ -12,8 +12,10 @@ from .handlers.admin import (
     handle_activate,
     handle_admin_list,
     handle_analytics,
+    handle_briefing_done,
     handle_complete_onboarding,
     handle_daily_report,
+    handle_new_onboard,
     handle_pause,
     handle_read_briefing,
     is_admin,
@@ -57,6 +59,8 @@ class OnboardingAgent:
         # ── Admin commands (no profile required) ──────────────────────────
         if intent.intent in {
             "admin_read_briefing",
+            "admin_new_onboard",
+            "admin_briefing_done",
             "admin_list",
             "admin_analytics",
             "admin_report",
@@ -206,6 +210,8 @@ class OnboardingAgent:
 
         handlers = {
             "admin_read_briefing": lambda: handle_read_briefing(request),
+            "admin_new_onboard": lambda: handle_new_onboard(request),
+            "admin_briefing_done": lambda: handle_briefing_done(request),
             "admin_list": lambda: handle_admin_list(request),
             "admin_analytics": lambda: handle_analytics(request),
             "admin_report": lambda: handle_daily_report(request),
@@ -240,11 +246,11 @@ class OnboardingAgent:
             return AgentInvocationResponse(
                 response_text=(
                     "👋 Hello! I'm the Rival Intelligence onboarding assistant.\n\n"
-                    "As an admin, you can onboard new starters. Say *\"how do I onboard someone?\"* "
-                    "for the full process, or use any of these commands:\n\n"
-                    "• Paste a Google Doc URL — process a briefing\n"
-                    "• `list active` — see all onboardings\n"
-                    "• `activate <name>` — activate a pending profile\n"
+                    "As an admin, you can onboard new starters. Just say *\"onboard someone\"* "
+                    "to get started — I'll create a briefing doc for you to fill in.\n\n"
+                    "Or use any of these commands:\n"
+                    "• Paste a Google Doc URL — process an existing briefing\n"
+                    "• `list` — see all onboardings\n"
                     "• `analytics` — aggregate stats"
                 ),
                 steps=["Admin greeted"],
@@ -274,23 +280,19 @@ def _handle_admin_help(request: AgentInvocationRequest) -> AgentInvocationRespon
     return AgentInvocationResponse(
         response_text=(
             "📋 *How to onboard a new starter*\n\n"
-            "*Step 1 — Prepare a briefing doc*\n"
-            "Create a Google Doc with the new starter's details:\n"
-            "• Name, role, department, start date\n"
-            "• Line manager\n"
-            "• Team introductions (who they should meet)\n"
-            "• Scheduled onboarding sessions\n"
-            "• Any special tool access or notes\n\n"
-            "*Step 2 — Share the briefing*\n"
-            "Paste the Google Doc URL here:\n"
-            "`[onboarding] https://docs.google.com/document/d/YOUR_DOC_ID/edit`\n\n"
-            "I'll read the doc, extract the details, and create an onboarding profile.\n\n"
+            "*Option A — Quick start (recommended)*\n"
+            "Just say *\"onboard someone\"* and I'll create a briefing document "
+            "for you in Google Drive. Fill in the details, come back, and say "
+            "*\"done with briefing\"* — I'll handle the rest.\n\n"
+            "*Option B — Bring your own doc*\n"
+            "If you already have a briefing doc, paste the Google Doc URL here "
+            "and I'll read it directly.\n\n"
             "*Step 3 — Activate*\n"
-            "Once ready (usually on their start date), run:\n"
-            "`[onboarding] activate <their name>`\n\n"
+            "Once the profile is created (usually on their start date), run:\n"
+            "`activate <their name>`\n\n"
             "The new starter can then message me and I'll guide them through everything.\n\n"
             "*Other commands:*\n"
-            "• `list active` — see all onboardings\n"
+            "• `list` — see all onboardings\n"
             "• `pause <name>` — pause an onboarding\n"
             "• `analytics` — aggregate stats\n"
             "• `report` — admin digest\n"

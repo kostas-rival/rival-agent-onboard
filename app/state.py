@@ -426,3 +426,35 @@ def get_clicked_task_ids(user_id: str) -> set[str]:
         if tid:
             task_ids.add(tid)
     return task_ids
+
+
+# ── Pending Briefings ─────────────────────────────────────────────────────
+
+
+def _pending_briefings_collection():
+    return _get_client().collection("pending_briefings")
+
+
+def save_pending_briefing(admin_user_id: str, doc_id: str, doc_url: str) -> None:
+    """Store a pending briefing doc that an admin is currently filling in."""
+    _pending_briefings_collection().document(admin_user_id).set({
+        "admin_user_id": admin_user_id,
+        "doc_id": doc_id,
+        "doc_url": doc_url,
+        "created_at": _now(),
+    })
+    log.info("Saved pending briefing for admin %s → doc %s", admin_user_id, doc_id)
+
+
+def get_pending_briefing(admin_user_id: str) -> Optional[Dict[str, Any]]:
+    """Return the pending briefing for an admin, or None."""
+    doc = _pending_briefings_collection().document(admin_user_id).get()
+    if doc.exists:
+        return doc.to_dict()
+    return None
+
+
+def delete_pending_briefing(admin_user_id: str) -> None:
+    """Remove a pending briefing after it has been processed."""
+    _pending_briefings_collection().document(admin_user_id).delete()
+    log.info("Deleted pending briefing for admin %s", admin_user_id)
