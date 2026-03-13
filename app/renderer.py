@@ -249,26 +249,46 @@ def render_admin_list(profiles: List[OnboardingProfile], progress_map: Optional[
 
 
 def render_analytics(profiles: List[OnboardingProfile] = None, progress_map: Optional[Dict] = None, analytics: Optional[Dict] = None) -> str:
-    """Render aggregate analytics."""
-    if analytics is None:
-        analytics = {}
-    
-    # Build analytics from profiles if passed directly
-    if profiles and progress_map:
-        active_count = len([p for p in profiles if p.status.value == "active"])
-        analytics = {
-            "active_count": active_count,
-            "completed_count": len([p for p in profiles if p.status.value == "completed"]),
-            "total_profiles": len(profiles),
-        }
+    """Render aggregate analytics with per-person breakdown."""
+    if not profiles:
+        return "📈 *Onboarding Analytics*\n\nNo profiles found."
+
+    active = [p for p in profiles if p.status.value == "active"]
+    completed_profiles = [p for p in profiles if p.status.value == "completed"]
+    pending = [p for p in profiles if p.status.value == "pending"]
+    paused = [p for p in profiles if p.status.value == "paused"]
 
     lines = [
         "📈 *Onboarding Analytics*",
         "",
-        f"*Active:* {analytics.get('active_count', 0)} onboardings",
-        f"*Total profiles:* {analytics.get('total_profiles', analytics.get('completed_count', 0))}",
+        f"*Active:* {len(active)}  |  *Pending:* {len(pending)}  |  *Completed:* {len(completed_profiles)}  |  *Paused:* {len(paused)}",
         "",
     ]
+
+    if active and progress_map:
+        lines.append("*Active Onboardings:*")
+        for p in active:
+            fp = progress_map.get(p.user_id)
+            name = p.preferred_name or p.full_name
+            if fp:
+                # fp is a dict of {task_id: TaskProgress}
+                from .models import TaskStatus as _TS
+                total = len(fp)
+                done = len([t for t in fp.values() if hasattr(t, 'status') and t.status in (_TS.COMPLETED, _TS.VERIFIED)])
+                if total > 0:
+                    pct = done / total
+                    bar = render_progress_bar(done, total, 14)
+                    lines.append(f"  *{name}* — {p.role}")
+                    lines.append(f"    {bar}  {render_percentage(done, total)}  ({done}/{total} tasks)")
+                else:
+                    lines.append(f"  *{name}* — {p.role} (no tasks tracked yet)")
+            else:
+                lines.append(f"  *{name}* — {p.role} (no progress data)")
+        lines.append("")
+
+    if completed_profiles:
+        lines.append(f"*Recently Completed:* {', '.join(p.full_name for p in completed_profiles[:5])}")
+        lines.append("")
 
     return "\n".join(lines)
 
@@ -292,7 +312,41 @@ def render_daily_report(
 
     for profile in profiles:
         name = profile.preferred_name or profile.full_name
-        lines.append(f"*{name}* — {profile.role} ({profile.status.value})")
+        start = profile.start_date
+        day_num = max(0, (today - start).days) if start else 0
+
+        fp = progress_map.get(profile.user_id) if progress_map else None
+        if fp:
+            from .models import TaskStatus as _TS
+            total = len(fp)
+            done = len([t for t in fp.values() if hasattr(t, 'status') and t.status in (_TS.COMPLETED, _TS.VERIFIED)])
+            if total > 0:
+                bar = render_progress_bar(done, total, 14)
+                pct_str = render_percentage(done, total)
+
+                # Status label
+                pct = done / total
+                if pct >= 0.85:
+                    label = "Ahead 🚀"
+                elif pct >= 0.5:
+                    label = "On track ✅"
+                elif day_num > 7 and pct < 0.3:
+                    label = "Behind ⚠️"
+                else:
+                    label = "Getting started 🌱"
+
+                # Find overdue (tasks from earlier phases still not done)
+                overdue_count = total - done  # simplified
+
+                lines.append(f"*{name}* — {profile.role}")
+                lines.append(f"  Day {day_num} | {bar}  {pct_str}  ({done}/{total}) | {label}")
+            else:
+                lines.append(f"*{name}* — {profile.role} (Day {day_num})")
+        else:
+            lines.append(f"*{name}* — {profile.role} (Day {day_num}, {profile.status.value})")
+
         lines.append("")
+
+    lines.append(f"_Report generated {today.strftime('%d %B %Y')} — {len(profiles)} active onboarding(s)_")
 
     return "\n".join(lines)

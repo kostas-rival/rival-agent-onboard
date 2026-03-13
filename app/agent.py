@@ -165,10 +165,10 @@ class OnboardingAgent:
             return handle_skip_task(request, profile, intent)
 
         # ── Progress & schedule ───────────────────────────────────────────
-        if intent_name == "progress":
+        if intent_name in ("progress", "show_progress"):
             return handle_progress(request, profile)
 
-        if intent_name == "schedule":
+        if intent_name in ("schedule", "show_schedule"):
             return handle_schedule(request, profile)
 
         if intent_name == "session_prep":

@@ -93,18 +93,36 @@ class OnboardingIntent(BaseModel):
 _GREETING_PATTERNS = {"hello", "hi", "hey", "help", "start", "get started"}
 _NEXT_PATTERNS = {"next", "continue", "what's next", "whats next", "move on", "keep going"}
 _PROGRESS_PATTERNS = {"progress", "how am i doing", "status", "dashboard", "how's it going"}
-_DONE_KEYWORDS = {"done", "finished", "completed", "set up", "sorted", "all set"}
+_DONE_KEYWORDS = {
+    "done", "finished", "completed", "set up", "sorted", "all set",
+    "i've done", "ive done", "i have done", "i've set up", "ive set up",
+    "i've finished", "ive finished", "i've completed", "ive completed",
+    "i've sorted", "ive sorted",
+    "i read", "i've read", "ive read",
+    "i logged", "i've logged", "ive logged", "logged into",
+    "i visited", "i've visited", "ive visited",
+    "i joined", "i've joined", "ive joined",
+    "i set up", "i've set up",
+    "i created", "i've created", "ive created",
+    "i added", "i've added", "ive added",
+    "already did", "already done", "already set up",
+    "took care of", "all sorted", "good to go",
+}
 _SKIP_KEYWORDS = {"skip", "not now", "later", "pass"}
 
 _TASK_KEYWORD_MAP = {
     "google": "google_drive",
     "drive": "google_drive",
     "calendar": "google_drive",
+    "google drive": "google_drive",
     "slack": "slack_setup",
+    "slack profile": "slack_setup",
     "slack policy": "slack_policy",
     "charlie": "charlie_hr",
     "charliehr": "charlie_hr",
+    "charlie hr": "charlie_hr",
     "hr portal": "charlie_hr",
+    "hr profile": "charlie_hr",
     "1password": "onepassword",
     "one password": "onepassword",
     "password": "onepassword",
@@ -112,20 +130,32 @@ _TASK_KEYWORD_MAP = {
     "time tracking": "productive_setup",
     "rival intelligence": "ri_first_use",
     "ri channel": "ri_channel",
+    "#rival-intelligence": "ri_channel",
     "email": "email_sig",
     "signature": "email_sig",
+    "email signature": "email_sig",
     "handbook": "handbook",
+    "rival handbook": "handbook",
     "org chart": "org_chart",
+    "organisation chart": "org_chart",
     "gtky": "gtky_card",
     "get to know": "gtky_card",
+    "get to know you": "gtky_card",
     "headshot": "headshot_bio",
     "bio": "headshot_bio",
     "linkedin": "linkedin_banner",
+    "linkedin banner": "linkedin_banner",
     "stand-up": "team_standup",
     "standup": "team_standup",
+    "daily standup": "team_standup",
     "taco": "taco_friday",
+    "taco friday": "taco_friday",
     "podcast": "social_channels",
     "content hub": "content_hub",
+    "delivery sop": "delivery_sop",
+    "sop": "delivery_sop",
+    "dev review": "dev_review",
+    "meet the team": "meet_team_website",
 }
 
 
@@ -187,14 +217,36 @@ def _fast_classify(text: str, is_admin: bool) -> Optional[OnboardingIntent]:
 
     # Task completion
     task_ids = _match_task_keywords(lower)
+    matched_keywords = [kw for kw in _TASK_KEYWORD_MAP if kw in lower]
     if any(kw in lower for kw in _DONE_KEYWORDS):
         return OnboardingIntent(
             intent="mark_complete",
             task_ids=task_ids,
-            task_keywords=[kw for kw in _TASK_KEYWORD_MAP if kw in lower],
+            task_keywords=matched_keywords,
             confidence=0.85,
             secondary_intent="next_task" if "next" in lower or "what" in lower else None,
         )
+
+    # Bare "done" — no keyword match but still a clear completion signal
+    if lower == "done" or lower == "done!":
+        return OnboardingIntent(
+            intent="mark_complete",
+            task_ids=[],
+            task_keywords=[],
+            confidence=0.8,
+        )
+
+    # Task keyword + implicit completion verb (past tense patterns without explicit 'done')
+    if task_ids and not any(kw in lower for kw in _SKIP_KEYWORDS):
+        # Check for implicit completion signals
+        _IMPLICIT_DONE = {"i have", "i've", "ive", "already", "just", "went to", "looked at", "checked out"}
+        if any(sig in lower for sig in _IMPLICIT_DONE):
+            return OnboardingIntent(
+                intent="mark_complete",
+                task_ids=task_ids,
+                task_keywords=matched_keywords,
+                confidence=0.8,
+            )
 
     # Skip
     if any(kw in lower for kw in _SKIP_KEYWORDS) and not lower.startswith("not sure"):

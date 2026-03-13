@@ -89,11 +89,14 @@ def handle_freeform(
     # Try LLM response first
     try:
         provider_config = ProviderConfig(
-            provider=request.provider or "google",
+            gemini_api_key=settings.gemini_api_key,
+        )
+        llm = create_chat_model(
+            provider=request.provider or "gemini",
             model=request.model or "gemini-2.5-flash",
             temperature=0.7,
+            config=provider_config,
         )
-        llm = create_chat_model(provider_config)
 
         messages = [
             SystemMessage(content=system_prompt),
@@ -172,7 +175,8 @@ def _call_internal_agent(
         payload = {
             "text": request.text,
             "user_id": request.user_id,
-            "provider": request.provider or "google",
+            "channel_id": getattr(request, "channel_id", "onboarding"),
+            "provider": request.provider or "gemini",
             "model": request.model or "gemini-2.5-flash",
         }
 

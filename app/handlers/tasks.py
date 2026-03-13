@@ -106,18 +106,38 @@ def handle_mark_complete(
     progress = get_all_task_progress(profile.user_id)
 
     # Determine which task(s) to mark complete
-    tasks_to_complete = _resolve_tasks(intent, template, profile)
+    tasks_to_complete = _resolve_tasks(intent, template, profile, raw_text=request.text)
 
     if not tasks_to_complete:
-        # Can't determine which task — ask
-        response = (
-            "I'm not sure which task you've completed. Could you be more specific?\n\n"
-            "You can say things like:\n"
-            "• _\"done with Slack\"_\n"
-            "• _\"finished Google Drive setup\"_\n"
-            "• _\"completed 1Password\"_\n\n"
-            "Or say *\"progress\"* to see all your tasks."
-        )
+        # Can't determine which task — show current group's incomplete tasks
+        progress_map = get_all_task_progress(profile.user_id)
+        group = get_next_incomplete_group(profile, template, progress_map)
+        if group:
+            incomplete = [
+                t for t in group.tasks
+                if not progress_map.get(t.id) or progress_map[t.id].status == TaskStatus.NOT_STARTED
+            ]
+            if incomplete:
+                task_list = "\n".join(f"• _\"{t.title}\"_" for t in incomplete)
+                response = (
+                    f"Which task have you completed? Your current tasks are:\n\n"
+                    f"{task_list}\n\n"
+                    f"Just name the task and I'll tick it off! 🎯"
+                )
+            else:
+                response = (
+                    "All tasks in your current group are done! 🎉\n\n"
+                    "Say *\"next\"* to move on to the next group."
+                )
+        else:
+            response = (
+                "I'm not sure which task you've completed. Could you be more specific?\n\n"
+                "You can say things like:\n"
+                "• _\"done with Slack\"_\n"
+                "• _\"finished Google Drive setup\"_\n"
+                "• _\"completed 1Password\"_\n\n"
+                "Or say *\"progress\"* to see all your tasks."
+            )
         return AgentInvocationResponse(
             response_text=response,
             steps=["Task resolution failed"],
@@ -184,7 +204,7 @@ def handle_skip_task(
 ) -> AgentInvocationResponse:
     """Handle task skip."""
     template = load_template(profile.template_version)
-    tasks_to_skip = _resolve_tasks(intent, template, profile)
+    tasks_to_skip = _resolve_tasks(intent, template, profile, raw_text=request.text)
 
     if not tasks_to_skip:
         response = "Which task would you like to skip? You can always come back to it later."
@@ -220,6 +240,7 @@ def _resolve_tasks(
     intent: OnboardingIntent,
     template,
     profile: OnboardingProfile,
+    raw_text: str = "",
 ) -> List[TaskDefinition]:
     """Resolve which tasks the user is referring to."""
     tasks = []
@@ -238,6 +259,20 @@ def _resolve_tasks(
             if tid:
                 task = get_task_by_id(template, tid)
                 if task and task not in tasks:
+                    tasks.append(task)
+
+    # Fuzzy match against task titles using the raw text
+    if not tasks and raw_text:
+        text_lower = raw_text.lower()
+        all_tasks = get_all_tasks(template)
+        for task in all_tasks:
+            title_lower = task.title.lower()
+            # Check if significant words from the title appear in the text
+            title_words = [w for w in title_lower.split() if len(w) > 3 and w not in (
+                "your", "the", "and", "set", "with", "into", "from",
+            )]
+            if title_words and sum(1 for w in title_words if w in text_lower) >= len(title_words) * 0.5:
+                if task not in tasks:
                     tasks.append(task)
 
     # If still empty, try to match from current group
