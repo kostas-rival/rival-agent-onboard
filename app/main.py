@@ -177,3 +177,16 @@ async def track_link_click(user_id: str, task_id: str, link_index: int):
 async def health():
     """Health check endpoint for Cloud Run."""
     return {"status": "healthy", "agent": "onboarding", "version": "1.0.0"}
+
+
+@app.post("/v1/admin/drive-cleanup")
+async def drive_cleanup():
+    """Clean up old files from the Drive service account to free storage quota."""
+    from .briefing import cleanup_sa_drive_storage
+
+    try:
+        result = cleanup_sa_drive_storage()
+        return JSONResponse(content={"status": "ok", **result})
+    except Exception:
+        log.exception("Drive cleanup failed")
+        raise HTTPException(status_code=500, detail="Drive cleanup failed")

@@ -63,7 +63,10 @@ def handle_new_onboard(
     request: AgentInvocationRequest,
     starter_name: Optional[str] = None,
 ) -> AgentInvocationResponse:
-    """Create a Google Doc briefing template and ask the admin to fill it in."""
+    """Create a Google Doc briefing template and ask the admin to fill it in.
+
+    Falls back to a text-based conversational briefing if Drive fails.
+    """
     try:
         # Resolve a display name for the admin
         admin_name = request.user_id  # fallback
@@ -84,16 +87,94 @@ def handle_new_onboard(
             "and I'll read the doc and set everything up."
         )
     except Exception:
-        log.exception("Failed to create blank briefing doc")
+        log.warning("Drive doc creation failed — falling back to text briefing", exc_info=True)
+        # Fallback: ask the admin to provide details in chat
+        name_line = f"Name: {starter_name}\n" if starter_name else "Name: \n"
         response = (
-            "❌ I couldn't create the briefing document. "
-            "Please check the Drive service account permissions.\n"
-            f"Service account: `{get_settings().drive_service_account}`"
+            "I couldn't create a Google Doc right now (Drive storage quota), "
+            "but we can do this right here instead! 📝\n\n"
+            "Please reply with the new starter's details in this format:\n\n"
+            "```\n"
+            f"{name_line}"
+            "Role: \n"
+            "Team: \n"
+            "Start date: \n"
+            "Location: \n"
+            "Line manager: \n"
+            "```\n\n"
+            "I'll parse whatever you provide and create the onboarding profile. "
+            "You can include as much or as little as you have — "
+            "the only required field is the *name*."
         )
 
     return AgentInvocationResponse(
         response_text=response,
-        steps=["Blank briefing doc created"],
+        steps=["Briefing flow initiated"],
+        citations=[],
+        provider=request.provider,
+        model=request.model,
+        agent_id="onboarding",
+    )
+
+
+def handle_inline_briefing(
+    request: AgentInvocationRequest,
+) -> AgentInvocationResponse:
+    """Parse an inline text briefing (Name: / Role: key-value pairs) from the admin."""
+    try:
+        briefing = parse_briefing_doc(request.text)
+
+        if not briefing.full_name:
+            return AgentInvocationResponse(
+                response_text=(
+                    "I couldn't find a *Name* in what you sent. "
+                    "Please make sure to include at least:\n"
+                    "```\nName: First Last\nRole: Job Title\nStart date: DD Month YYYY\n```"
+                ),
+                steps=["Inline briefing incomplete"],
+                citations=[],
+                provider=request.provider,
+                model=request.model,
+                agent_id="onboarding",
+            )
+
+        # Create profile directly from the inline data
+        start = briefing.start_date or date.today()
+        profile = OnboardingProfile(
+            user_id=briefing.slack_user_id or f"pending_{briefing.full_name.replace(' ', '_').lower()}",
+            full_name=briefing.full_name,
+            preferred_name=briefing.preferred_name,
+            role=briefing.role or "TBC",
+            team=briefing.team,
+            start_date=start,
+            line_manager=briefing.line_manager,
+            office_location=briefing.office_location,
+            status=OnboardingStatus.PENDING,
+            template_version="v2",
+            created_by=request.user_id,
+        )
+        create_profile(profile)
+
+        response = (
+            f"✅ *Profile created for {briefing.full_name}*\n\n"
+            f"• *Role:* {briefing.role or 'TBC'}\n"
+            f"• *Start date:* {start.strftime('%d %B %Y')}\n"
+            f"• *Line manager:* {briefing.line_manager or 'TBC'}\n"
+            f"• *Office:* {briefing.office_location or 'TBC'}\n\n"
+            f"The onboarding will activate automatically on the start date, "
+            f"or run `activate {briefing.full_name}` to start now."
+        )
+    except Exception:
+        log.exception("Failed to parse inline briefing")
+        response = (
+            "❌ I couldn't parse those details. Please use this format:\n"
+            "```\nName: First Last\nRole: Job Title\nTeam: Team Name\n"
+            "Start date: DD Month YYYY\nLocation: City\nLine manager: Name\n```"
+        )
+
+    return AgentInvocationResponse(
+        response_text=response,
+        steps=["Inline briefing parsed", "Profile created"],
         citations=[],
         provider=request.provider,
         model=request.model,

@@ -183,6 +183,10 @@ def _fast_classify(text: str, is_admin: bool) -> Optional[OnboardingIntent]:
             confidence=0.95,
         )
 
+    # Detect inline briefing text (admin pasting Name: / Role: key-value pairs)
+    if is_admin and "name:" in lower and any(k in lower for k in ("role:", "start date:", "team:", "location:")):
+        return OnboardingIntent(intent="admin_inline_briefing", confidence=0.95)
+
     # Admin commands
     if is_admin:
         if lower.startswith("list active") or lower.startswith("show onboarding") or lower == "list":

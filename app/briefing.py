@@ -501,6 +501,47 @@ _BRIEFING_SECTIONS: List[tuple] = [
 ]
 
 
+def cleanup_sa_drive_storage() -> Dict[str, Any]:
+    """Delete files owned by the service account to free up Drive quota.
+
+    Targets:
+    - Trashed files (empty trash)
+    - Old 'Onboarding Briefing' draft docs older than 7 days
+    Returns a summary dict.
+    """
+    drive = _get_drive_service()
+    deleted = 0
+    errors = 0
+
+    # 1) Empty the trash
+    try:
+        drive.files().emptyTrash().execute()
+        log.info("Emptied SA Drive trash")
+    except Exception:
+        log.warning("Could not empty SA Drive trash", exc_info=True)
+
+    # 2) Delete old briefing draft docs (older than 7 days)
+    from datetime import timedelta
+    cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat() + "Z"
+    try:
+        resp = drive.files().list(
+            q=f"name contains 'Onboarding Briefing' and createdTime < '{cutoff}' and trashed = false",
+            fields="files(id,name,createdTime)",
+            pageSize=100,
+        ).execute()
+        for f in resp.get("files", []):
+            try:
+                drive.files().delete(fileId=f["id"]).execute()
+                deleted += 1
+                log.info("Deleted old briefing doc: %s (%s)", f["name"], f["id"])
+            except Exception:
+                errors += 1
+    except Exception:
+        log.warning("Could not list old briefing docs", exc_info=True)
+
+    return {"deleted": deleted, "errors": errors}
+
+
 def create_blank_briefing_doc(
     admin_name: str = "Admin",
     starter_name: Optional[str] = None,
@@ -513,6 +554,8 @@ def create_blank_briefing_doc(
     If *starter_name* is provided it is pre-filled in the "Name:" field.
 
     Returns ``{"doc_id": ..., "doc_url": ...}``.
+
+    Raises on failure (caller should handle gracefully).
     """
     settings = get_settings()
     drive = _get_drive_service()
@@ -521,22 +564,21 @@ def create_blank_briefing_doc(
     label = starter_name or admin_name
     title = f"Onboarding Briefing — {label} ({date.today().strftime('%d %b %Y')})"
 
-    # 1) Create a blank document in the target folder
-    file_meta = drive.files().create(
-        body={
-            "name": title,
-            "mimeType": "application/vnd.google-apps.document",
-            "parents": [settings.drive_folder_id],
-        },
-        fields="id",
-    ).execute()
+    # 1) Try to create — if quota exceeded, clean up and retry once
+    try:
+        file_meta = _drive_create_doc(drive, title, settings.drive_folder_id)
+    except Exception as first_err:
+        if "storageQuotaExceeded" in str(first_err) or "403" in str(first_err):
+            log.warning("Drive quota exceeded — attempting cleanup before retry")
+            cleanup_sa_drive_storage()
+            file_meta = _drive_create_doc(drive, title, settings.drive_folder_id)
+        else:
+            raise
+
     doc_id = file_meta["id"]
     log.info("Created blank briefing doc: %s", doc_id)
 
     # 2) Build the insertText + updateParagraphStyle requests.
-    #    The Docs API inserts at an *index*.  We track the running index,
-    #    starting at 1 (the body always starts with index 1).
-    #    If a starter_name was provided, pre-fill the Name: field.
     sections = list(_BRIEFING_SECTIONS)
     if starter_name:
         sections = [
@@ -589,3 +631,15 @@ def create_blank_briefing_doc(
     doc_url = f"https://docs.google.com/document/d/{doc_id}/edit"
     log.info("Blank briefing doc ready: %s", doc_url)
     return {"doc_id": doc_id, "doc_url": doc_url}
+
+
+def _drive_create_doc(drive, title: str, folder_id: str) -> Dict[str, str]:
+    """Create a blank Google Doc in the given folder. Raises on failure."""
+    return drive.files().create(
+        body={
+            "name": title,
+            "mimeType": "application/vnd.google-apps.document",
+            "parents": [folder_id],
+        },
+        fields="id",
+    ).execute()
