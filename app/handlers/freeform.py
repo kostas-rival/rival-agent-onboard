@@ -54,9 +54,12 @@ Guidelines:
 """
 
 ADMIN_CONTEXT = """They are also an admin who can onboard new starters.
-Admin commands: paste a Google Doc URL to process a briefing, 'list active' to see onboardings,
-'activate <name>' to activate someone, 'analytics' for stats, 'report' for a digest.
-If they ask about onboarding someone, explain the briefing doc → activate process."""
+To start a new onboarding, they should say 'onboard someone' or 'onboard <name>'.
+This creates a pre-filled briefing doc which they fill in and confirm.
+Other admin commands: 'list' for active onboardings, 'activate <name>' to start someone,
+'analytics' for stats, 'report' for a digest.
+IMPORTANT: Do NOT tell them to create their own Google Doc or paste a URL.
+Instead, tell them to say 'onboard someone' and the system will generate the briefing doc for them."""
 
 
 def handle_freeform(
